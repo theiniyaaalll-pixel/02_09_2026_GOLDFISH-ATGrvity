@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Goldfish Follower - Fullscreen</title>
+  <script src="p5.min.js"></script>
+  <script src="ml5.min.js"></script>
+  <!-- Google MediaPipe Hands official high-precision AI hand tracking -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="goldfish_data.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+      overflow: hidden; /* Prevent scrolling */
+    }
+    /* Mirror the canvas horizontally so it acts like a mirror */
+    canvas {
+      display: block;
+      transform: scaleX(-1);
+    }
+  </style>
+</head>
+<body>
+  <script src="sketch.js"></script>
+</body>
+</html>
