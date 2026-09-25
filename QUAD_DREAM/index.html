@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>AR Quad Portal • MediaPipe Perspective Filter</title>
+  <meta name="description" content="Real-time AR Quad perspective projection with MediaPipe hand tracking, Halftone Dual-Tone, and Cartoon Cel-Shading filters." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- MediaPipe Hands & Camera Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <!-- Canvas Wrap & WebGL Viewport -->
+  <main id="canvas-wrap">
+    <canvas id="gl-canvas"></canvas>
+  </main>
+
+  <!-- Hidden Native Video for Camera Feed -->
+  <video id="webcam-video" playsinline muted autoplay></video>
+
+  <!-- Floating Center Instructions -->
+  <div id="center-prompt" class="center-prompt">
+    <h3>✨ Raise Both Hands to Create Quad</h3>
+    <p>Pinch index finger & thumb on each hand to anchor the 4 perspective corners</p>
+  </div>
+
+  <!-- HUD Interface Layer -->
+  <div class="hud-layer">
+    <!-- Header Controls -->
+    <header class="hud-header">
+      <div class="hud-brand">
+        <div class="brand-dot"></div>
+        <span class="brand-title">Aura Quad AR</span>
+        <span class="brand-badge">MediaPipe</span>
+      </div>
+
+      <div class="hud-status-group">
+        <!-- Filter Info Pill -->
+        <div class="filter-tag">
+          <span class="filter-swatch" id="swatch-a"></span>
+          <span class="filter-swatch" id="swatch-b"></span>
+          <span id="current-theme-tag">Dual-Tone • Cyberpunk Neon</span>
+        </div>
+
+        <!-- Hand Tracking Indicator -->
+        <div class="status-pill" id="status-hands">
+          <div class="indicator"></div>
+          <span class="text">Raise 2 Hands</span>
+        </div>
+
+        <!-- FPS Counter -->
+        <div class="fps-counter" id="fps-counter">60 FPS</div>
+      </div>
+    </header>
+
+    <!-- Footer Dock Controls -->
+    <footer class="hud-footer">
+      <div class="control-dock">
+        <!-- Theme Mode Switcher -->
+        <div class="mode-toggle-group">
+          <button id="btn-duotone" class="mode-btn" title="Dual Tone & Halftone Dots (Press 1)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20z" fill="currentColor"/></svg>
+            Dual-Tone
+          </button>
+          <button id="btn-cartoon" class="mode-btn" title="Animated Anime & Painterly Cel (Press 2)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
+            Animated
+          </button>
+          <button id="btn-dreamy" class="mode-btn" title="Dreamy Bloom & Sunlight Long Exposure (Press 3)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            Dreamy Bloom
+          </button>
+          <button id="btn-shuffle" class="mode-btn active" title="Random Shuffle on Quad Detection (Press 4)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+            Auto-Roll
+          </button>
+        </div>
+
+        <!-- Randomize Action Button -->
+        <button id="btn-randomize" class="action-btn" title="Roll New Random Palette / Preset (Spacebar)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="16" cy="8" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="8" cy="16" r="1.5" fill="currentColor"/><circle cx="16" cy="16" r="1.5" fill="currentColor"/></svg>
+          Roll Random (Space)
+        </button>
+
+        <!-- Mirror Camera -->
+        <button id="btn-mirror" class="icon-btn" title="Toggle Mirror View">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 18 4-4-4-4"/><path d="M18 14H4"/><path d="m10 6-4 4 4 4"/><path d="M6 10h14"/></svg>
+        </button>
+
+        <!-- Save Snapshot -->
+        <button id="btn-snapshot" class="icon-btn" title="Capture High-Res Photo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">✨ Generated Filter</div>
+
+  <!-- Application Logic -->
+  <script src="gl-pipeline.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>
