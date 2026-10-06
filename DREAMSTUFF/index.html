@@ -2,24 +2,27 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>Liminal VR Walk v6</title>
+<title>Liminal VR Walk</title>
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Liminal VR"><meta name="theme-color" content="#020305"><link rel="manifest" href="manifest.webmanifest">
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020305;color:#eee;font-family:system-ui,sans-serif}canvas{width:100%;height:100%;display:block;touch-action:none}.ui{position:fixed;left:16px;top:16px;z-index:3;background:#090b0dcc;border:1px solid #ffffff22;border-radius:14px;padding:12px 14px;backdrop-filter:blur(10px);font-size:12px;line-height:1.45}.ui b{letter-spacing:.12em}.ui button{margin-top:8px;background:#eee;color:#111;border:0;border-radius:9px;padding:9px 12px;font-weight:700;cursor:pointer}.hint{opacity:.65;margin-top:6px}.vr .ui{opacity:.18}.headset .ui{display:none}.vr.headset-ready .ui{opacity:0;pointer-events:none}.touch{display:none;position:fixed;inset:auto 0 20px;z-index:4;justify-content:center;gap:12px}.touch button{width:62px;height:62px;border-radius:50%;border:1px solid #ffffff55;background:#0008;color:#fff;font-size:24px}@media(pointer:coarse){.touch{display:flex}.hint{display:none}}
 .reticle{display:none;position:fixed;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border:2px solid #fff8;border-radius:50%;z-index:5;box-sizing:border-box;pointer-events:none}.reticle.walking{border-color:#fff;background:#fff7;box-shadow:0 0 14px #fff8}.vr.headset-ready .reticle{display:block}.headset .reticle{display:none!important}
 .cam{display:none;position:fixed;right:14px;bottom:14px;width:220px;z-index:6;background:#050607dd;border:1px solid #ffffff2b;border-radius:14px;overflow:hidden}.controller .cam{display:block}.cam video{display:block;width:100%;transform:scaleX(-1)}.cam .camstat{padding:8px 10px;font:12px system-ui;color:#fff}.controller .touch{display:none!important}
 .qr{display:none;position:fixed;right:14px;top:14px;z-index:6;width:236px;background:#050607ee;border:1px solid #ffffff2b;border-radius:14px;padding:12px;font-size:12px;line-height:1.4;backdrop-filter:blur(10px)}.controller .qr{display:block}.qrhead{display:flex;justify-content:space-between;align-items:center;gap:8px}.qrhead b{letter-spacing:.12em}.qrhead button{background:#ffffff1a;color:#eee;border:1px solid #ffffff33;border-radius:8px;padding:4px 9px;font-size:11px;cursor:pointer}.qrcode{margin-top:10px;background:#fff;padding:10px;border-radius:10px;width:200px;height:200px;display:flex;align-items:center;justify-content:center;color:#111}.qrcode img,.qrcode canvas{display:block}.qrtext{margin-top:8px;opacity:.75}.qr a{display:block;margin-top:6px;color:#9cf;word-break:break-all;font-size:11px}.qr.collapsed .qrbody{display:none}
-.enter{display:none;position:fixed;inset:0;z-index:10;background:#020305f2;align-items:center;justify-content:center;text-align:center;padding:24px;box-sizing:border-box}.headset .enter{display:flex}.headset.headset-ready .enter{display:none}.enter b{letter-spacing:.16em;font-size:15px}.enter p{opacity:.75;font-size:14px;max-width:340px;margin:12px auto}.enter button{margin-top:10px;background:#eee;color:#111;border:0;border-radius:12px;padding:16px 22px;font-weight:800;font-size:15px;letter-spacing:.06em}.enter .small{font-size:12px;opacity:.55}
+.enter{display:none;position:fixed;inset:0;z-index:10;background:#020305f2;align-items:center;justify-content:center;text-align:center;padding:24px;box-sizing:border-box}.headset .enter{display:flex}.headset.headset-ready .enter{display:none}.enter b{letter-spacing:.16em;font-size:15px}.enter p{opacity:.75;font-size:14px;max-width:340px;margin:12px auto}.enter button{margin-top:10px;background:#eee;color:#111;border:0;border-radius:12px;padding:16px 22px;font-weight:800;font-size:15px;letter-spacing:.06em}.enter .small{font-size:12px;opacity:.55}.enter a{color:#9cf}.enter .ghost{background:transparent;color:#eee;border:1px solid #ffffff55;padding:10px 16px;font-size:13px}.install{max-width:360px;margin:6px auto 0;text-align:left;background:#ffffff10;border:1px solid #ffffff22;border-radius:12px;padding:12px 16px}.install p{margin:4px 0;max-width:none}.install b{letter-spacing:normal;font-size:inherit}.install ol{margin:8px 0;padding-left:20px;font-size:14px;line-height:1.6}.install[hidden],.enter button[hidden]{display:none}
 .banner{display:none;position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:7;background:#000c;border:1px solid #ffffff33;border-radius:10px;padding:8px 12px;font-size:12px;pointer-events:none}.headset-ready.offline .banner{display:block}
+.calib{position:fixed;inset:0;z-index:12;background:#020305;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;box-sizing:border-box;text-align:center;font-size:13px}.calib[hidden]{display:none}.calib p{margin:0;max-width:520px;opacity:.8}.card{border:2px solid #0f9;border-radius:10px;box-sizing:border-box;background:#00ff9910}.calib input{width:min(520px,90vw)}.calib .row{display:flex;gap:10px}.calib button{background:#eee;color:#111;border:0;border-radius:10px;padding:10px 16px;font-weight:700}.calib button.ghost{background:transparent;color:#eee;border:1px solid #ffffff55}
+.vtoast{display:none;position:fixed;top:22%;transform:translateX(-50%);z-index:8;background:#000d;color:#0f9;border:1px solid #0f96;border-radius:8px;padding:6px 10px;font-size:12px;white-space:nowrap;pointer-events:none}.vtoast.show{display:block}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
-<body><canvas id="c"></canvas><div class="cam" id="cam"><video id="webcam" autoplay playsinline muted></video><div class="camstat" id="camstat">Camera starting…</div></div><div class="reticle" id="reticle" aria-hidden="true"></div><div class="ui" id="ui"><b id="title">LIMINAL WALK</b><div class="hint" id="hint">WASD / arrows move · mouse look</div><div id="status" style="margin-top:5px;opacity:.72">Connecting…</div><button id="motion" style="display:none">ENABLE HEAD TRACKING</button><button id="vr">CARDBOARD VIEW</button></div><div class="touch"><button data-k="a">←</button><button data-k="w">↑</button><button data-k="s">↓</button><button data-k="d">→</button></div><div class="qr" id="qr"><div class="qrhead"><b>JOIN WITH A PHONE</b><button id="qrtoggle">Hide</button></div><div class="qrbody"><div class="qrcode" id="qrcode">Creating room…</div><div class="qrtext" id="qrtext">Scan with the phone camera, tap “Enter VR”, then place the phone in the Cardboard headset.</div><a id="qrlink" target="_blank" rel="noopener"></a></div></div><div class="enter" id="enter"><div><b>LIMINAL WALK · HEADSET</b><p id="enterstatus">Connecting to laptop…</p><button id="enterbtn">TAP TO ENTER VR</button><p class="small">Turn the phone sideways and place it in the Cardboard headset. The laptop controls the walk.</p></div></div><div class="banner" id="banner">Connection lost · reconnecting…</div>
+<body><canvas id="c"></canvas><div class="cam" id="cam"><video id="webcam" autoplay playsinline muted></video><div class="camstat" id="camstat">Camera starting…</div></div><div class="reticle" id="reticle" aria-hidden="true"></div><div class="ui" id="ui"><b id="title">LIMINAL WALK</b><div class="hint" id="hint">WASD / arrows move · mouse look</div><div id="status" style="margin-top:5px;opacity:.72">Connecting…</div><button id="motion" style="display:none">ENABLE HEAD TRACKING</button><button id="vr">CARDBOARD VIEW</button></div><div class="touch"><button data-k="a">←</button><button data-k="w">↑</button><button data-k="s">↓</button><button data-k="d">→</button></div><div class="qr" id="qr"><div class="qrhead"><b>JOIN WITH A PHONE</b><button id="qrtoggle">Hide</button></div><div class="qrbody"><div class="qrcode" id="qrcode">Creating room…</div><div class="qrtext" id="qrtext">Scan with the phone camera, tap “Enter VR”, then place the phone in the Cardboard headset.</div><a id="qrlink" target="_blank" rel="noopener"></a></div></div><div class="enter" id="enter"><div><b>LIMINAL WALK · HEADSET</b><p id="enterstatus">Connecting to laptop…</p><div class="install" id="install" hidden><p><b>Full screen on iPhone needs a one-time step.</b> Safari doesn’t let web pages hide its bars.</p><ol><li>Tap <b>Share</b> in Safari’s toolbar</li><li>Tap <b>Add to Home Screen</b> (keep “Open as Web App” on)</li><li>Open <b>Liminal VR</b> from your Home Screen</li></ol><p class="small">The icon reconnects to this laptop next time.</p><button class="ghost" id="safaribtn">Continue in Safari anyway</button></div><button id="enterbtn">TAP TO ENTER VR</button><p class="small">Turn the phone sideways and place it in the Cardboard headset. The laptop controls the walk.</p><p class="small"><a href="#" id="roomlink">Laptop showing a different room code?</a> · <a href="#" id="caliblink">Calibrate screen size</a></p><p class="small" id="calibstate"></p></div></div><div class="calib" id="calib" hidden><b>SCREEN SIZE</b><p id="calibmsg">Turn the phone sideways. Hold a standard bank/ID card (85.6 mm wide) against the screen and drag the slider until the green box is exactly as wide as the card.</p><div class="card" id="card"></div><input type="range" id="cardw" min="250" max="1100" step="1"><div class="row"><button id="calibsave">SAVE</button><button class="ghost" id="calibreset">Reset</button><button class="ghost" id="calibcancel">Cancel</button></div></div><div class="vtoast" id="toastL"></div><div class="vtoast" id="toastR"></div><div class="banner" id="banner">Connection lost · reconnecting…</div>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script>
 const canvas=document.getElementById('c'),gl=canvas.getContext('webgl',{antialias:false,alpha:false});
 if(!gl) document.body.innerHTML='<p style="padding:2rem">WebGL is required.</p>';
 const V=`attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}`;
-const F=`precision highp float;uniform vec2 r;uniform float t;uniform vec3 cp;uniform vec2 rot;uniform float vr;uniform float eye;uniform float converge;uniform float distortion;
+const F=`precision highp float;uniform vec2 r;uniform float t;uniform vec3 cp;uniform vec2 rot;uniform float vr;uniform float eye;uniform vec2 lensL;uniform vec2 lensR;uniform float pxPerM;uniform float screenLens;uniform vec2 kd;uniform float fovTan;uniform float crossOn;
 #define MAX 82
 float box(vec3 p,vec3 b){vec3 q=abs(p)-b;return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.);}
 float cyl(vec3 p,float h,float rad){vec2 d=abs(vec2(length(p.xz),p.y))-vec2(rad,h);return min(max(d.x,d.y),0.)+length(max(d,0.));}
@@ -29,33 +32,50 @@ vec3 norm(vec3 p){vec2 e=vec2(.003,0);return normalize(vec3(map(p+e.xyy)-map(p-e
 float trace(vec3 ro,vec3 rd,out vec3 p){float d=0.;for(int i=0;i<MAX;i++){p=ro+rd*d;float h=map(p);if(h<.003||d>85.)break;d+=h*.72;}return d;}
 vec3 sky(vec3 rd){float h=max(rd.y,0.);return mix(vec3(.018,.025,.04),vec3(.055,.075,.105),h);}
 void main(){vec2 fc=gl_FragCoord.xy;vec2 uv=(2.*fc-r)/r.y;float side=0.;float lensEdge=0.;if(vr>.5){
-// Reference-style Cardboard layout: two near-square eye images touching at the center.
-// Any extra-wide screen space becomes black side bars, never a center gap.
-float eyeSize=min(r.y,r.x*.5);
-float pairW=eyeSize*2.;
-float x0=(r.x-pairW)*.5;
-if(fc.x<x0||fc.x>x0+pairW){gl_FragColor=vec4(0,0,0,1);return;}
-float ex=fc.x-x0;
-side=step(eyeSize,ex);
-vec2 local=vec2(ex-side*eyeSize,fc.y);
-vec2 ln=(local-vec2(eyeSize*.5,r.y*.5))/(eyeSize*.5);
-// Cardboard pre-warp: counteracts the physical lens so the fused view looks flatter.
-float rr=dot(ln,ln);
-uv=ln*(1.0+distortion*rr);
+// Cardboard lens model, ported from Google's cardboard-vr-display (CardboardDistorter / DeviceInfo).
+// Each eye's projection centre sits exactly on its lens axis, so content at infinity lands on both
+// lens centres and the eyes look straight ahead to fuse it (no divergence).
+side=step(r.x*.5,fc.x);
+vec2 lens=mix(lensL,lensR,side);
+// No-lens tangent: physical offset from the lens axis divided by the screen-to-lens distance.
+vec2 tn=(fc-lens)/(pxPerM*screenLens);
+float r2=dot(tn,tn);
+// The lens maps a screen point at tangent tn to the perceived tangent tn*(1+k1 r^2+k2 r^4); rendering
+// that perceived direction at this pixel pre-cancels the lens' pincushion distortion.
+uv=tn*(1.+kd.x*r2+kd.y*r2*r2);
+if(abs(uv.x)>fovTan||abs(uv.y)>fovTan){gl_FragColor=vec4(0,0,0,1);return;}
 }
 float cy=cos(rot.x),sy=sin(rot.x),cx=cos(rot.y),sx=sin(rot.y);vec3 fw=normalize(vec3(sy*cx,sx,cy*cx)),rt=normalize(vec3(cy,0.,-sy)),up=normalize(cross(rt,fw));
 float es=(side*2.-1.);vec3 ro=cp+rt*eye*es;
-// Toe-in is avoided: parallel eye cameras use an off-axis convergence correction.
-vec3 rd=normalize(fw+(uv.x-eye*es/max(converge,.5))*rt+uv.y*up);
+// Parallel eye cameras (no toe-in, no convergence shear); off-axis framing comes from the lens centres.
+vec3 rd=normalize(fw+uv.x*rt+uv.y*up);
 vec3 p;float dist=trace(ro,rd,p);vec3 col=sky(rd);if(dist<85.){vec3 n=norm(p);float diff=.18+.28*max(dot(n,normalize(vec3(-.3,.8,-.2))),0.);float stripes=.5+.5*sin(p.z*.48);vec3 warm=vec3(1.0,.48,.16);float lamps=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/3.),8.);float edge=exp(-abs(p.y-.08)*18.)*exp(-abs(abs(p.x)-4.5)*2.);col=vec3(.09,.075,.065)*diff;col+=warm*(lamps*.48+edge*.35);if(p.y<.02){vec3 rr=reflect(rd,n);col=mix(col,sky(rr)+warm*.16,.46);}float fog=1.-exp(-dist*.027);col=mix(col,vec3(.018,.024,.032),fog);}
-float glow=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/5.),10.)*.08;col+=vec3(1.,.35,.08)*glow;col=col/(col+.72);col=pow(col,vec3(.78));float vig=1.-.18*dot(uv,uv);col*=vig;float grain=fract(sin(dot(fc+floor(t*24.),vec2(12.9898,78.233)))*43758.5453);col+=(grain-.5)*.018;if(vr>.5){col.r+=lensEdge*.025;col.b+=lensEdge*.018;col*=1.-lensEdge*.13;}gl_FragColor=vec4(col,1);}`;
+float glow=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/5.),10.)*.08;col+=vec3(1.,.35,.08)*glow;col=col/(col+.72);col=pow(col,vec3(.78));float vig=1.-(vr>.5?.08:.18)*dot(uv,uv);col*=vig;if(vr>.5&&crossOn>.5){float a=step(abs(uv.x),.004)+step(abs(uv.y),.004);col=mix(col,vec3(0.,1.,.6),clamp(a,0.,1.)*step(max(abs(uv.x),abs(uv.y)),.25));}float grain=fract(sin(dot(fc+floor(t*24.),vec2(12.9898,78.233)))*43758.5453);col+=(grain-.5)*.018;if(vr>.5){col.r+=lensEdge*.025;col.b+=lensEdge*.018;col*=1.-lensEdge*.13;}gl_FragColor=vec4(col,1);}`;
 function shader(type,src){let s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}let pr=gl.createProgram();gl.attachShader(pr,shader(gl.VERTEX_SHADER,V));gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,F));gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);let b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);let a=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
-const U=n=>gl.getUniformLocation(pr,n),ur=U('r'),ut=U('t'),uc=U('cp'),urot=U('rot'),uvr=U('vr'),ue=U('eye'),uconv=U('converge'),udist=U('distortion');let pos={x:0,y:1.68,z:7},yaw=Math.PI,pitch=0,keys={},vr=false,last=performance.now();
+const U=n=>gl.getUniformLocation(pr,n),ur=U('r'),ut=U('t'),uc=U('cp'),urot=U('rot'),uvr=U('vr'),ue=U('eye'),uLensL=U('lensL'),uLensR=U('lensR'),uPxPerM=U('pxPerM'),uScreenLens=U('screenLens'),uKd=U('kd'),uFovTan=U('fovTan'),uCross=U('crossOn');let pos={x:0,y:1.68,z:7},yaw=Math.PI,pitch=0,keys={},vr=false,last=performance.now();
 function resize(){let d=Math.min(devicePixelRatio,1.5);canvas.width=Math.floor(innerWidth*d);canvas.height=Math.floor(innerHeight*d);gl.viewport(0,0,canvas.width,canvas.height)}addEventListener('resize',resize);resize();
+// Cardboard viewer optics: Google Cardboard I/O 2015 ("V2") values from cardboard-vr-display.
+const VIEWER={interLensMm:64,screenLensMm:39,baselineMm:35,k:[0.34,0.55],fovDeg:60},BEVEL_MM=4,CARD_MM=85.6;
+const IS_IPHONE=/iPhone|iPod/.test(navigator.userAgent);
+// Physical size of one CSS pixel. Browsers don't expose it: iPhones are 460 ppi at DPR 3 and 326 ppi at
+// DPR 2 (Apple specs, render resolution); Android has no reliable source, so 1/160 inch is only a
+// starting guess — the card calibration replaces it with a measurement.
+function guessMmPerCss(){return IS_IPHONE?25.4*devicePixelRatio/(devicePixelRatio>=3?460:326):25.4/160}
+const calib={mmPerCss:guessMmPerCss(),measured:false,lensMm:VIEWER.interLensMm,cross:false};
+try{const s=JSON.parse(localStorage.getItem('liminalCalib')||'{}');if(s.mmPerCss>0.05&&s.mmPerCss<0.4){calib.mmPerCss=s.mmPerCss;calib.measured=true}if(s.lensMm>=50&&s.lensMm<=75)calib.lensMm=s.lensMm}catch{}
+function saveCalib(){try{localStorage.setItem('liminalCalib',JSON.stringify({mmPerCss:calib.measured?calib.mmPerCss:undefined,lensMm:calib.lensMm}))}catch{}}
+function vrGeometry(){
+ const cssToCanvas=canvas.width/innerWidth,pxPerMm=cssToCanvas/calib.mmPerCss,half=calib.lensMm/2*pxPerMm;
+ // Lens axes are measured up from the phone's bottom edge; that only holds when the canvas reaches the
+ // bottom of the physical screen (fullscreen / Home Screen app). Otherwise fall back to mid-height.
+ const fullHeight=innerHeight>=Math.min(screen.width,screen.height)-2;
+ const ly=fullHeight?(VIEWER.baselineMm-BEVEL_MM)*pxPerMm:canvas.height*.5;
+ return {lx:canvas.width/2-half,rx:canvas.width/2+half,ly,pxPerM:pxPerMm*1000,eyeHalf:calib.lensMm/2000};
+}
 const params=new URLSearchParams(location.search), role=params.get('mode')||'controller';
 const status=document.getElementById('status'), motionBtn=document.getElementById('motion'), vrBtn=document.getElementById('vr');
 if(role==='headset'){vr=true;document.body.classList.add('vr','headset');document.getElementById('title').textContent='CARDBOARD HEADSET';document.getElementById('hint').textContent='Mirroring laptop simulation';vrBtn.style.display='none';motionBtn.style.display='none';document.querySelector('.touch').style.display='none';}
-if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').textContent='MASTER SIMULATION';document.getElementById('hint').textContent='👍👍 = forward · keyboard also works';vrBtn.style.display='none';}
+if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').textContent='MASTER SIMULATION';document.getElementById('hint').innerHTML='👍👍 = forward · keyboard also works<br>Headset tuning: <b>[ ]</b> lens spacing · <b>G</b> alignment cross';vrBtn.style.display='none';}
 function normalizedKey(e){const k=e.key.toLowerCase();return ({arrowup:'w',arrowdown:'s',arrowleft:'a',arrowright:'d'})[k]||k}
 addEventListener('keydown',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=true}});
 addEventListener('keyup',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=false}});
@@ -67,20 +87,25 @@ let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,serverTime:0};
 // Laptop <-> phone sync over a PeerJS (WebRTC) data channel. The laptop registers a short room
 // code with the public PeerJS broker; the phone gets that code from the QR link and connects directly.
 const ROOM_PREFIX='liminal-vr-';
-function store(k,v){try{v===undefined?sessionStorage.removeItem(k):sessionStorage.setItem(k,v)}catch{}}
-function recall(k){try{return sessionStorage.getItem(k)}catch{return null}}
+function store(k,v){try{v===undefined?localStorage.removeItem(k):localStorage.setItem(k,v)}catch{}}
+function recall(k){try{return localStorage.getItem(k)}catch{return null}}
 function makeCode(){const a='abcdefghjkmnpqrstuvwxyz23456789';let s='';for(const v of crypto.getRandomValues(new Uint8Array(6)))s+=a[v%a.length];return s}
 function headsetUrl(code){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('mode','headset');u.searchParams.set('room',code);return u.href}
-const conns=new Set();
+const conns=new Set();let applyCfg=()=>{};
 if(role==='controller'){
  const qr=document.getElementById('qr'),qrToggle=document.getElementById('qrtoggle'),qrBox=document.getElementById('qrcode'),qrLink=document.getElementById('qrlink');
  const setQrOpen=open=>{qr.classList.toggle('collapsed',!open);qrToggle.textContent=open?'Hide':'Show QR'};
  qrToggle.onclick=()=>setQrOpen(qr.classList.contains('collapsed'));
+ const tuneStatus=document.createElement('div');tuneStatus.style.cssText='margin-top:4px;opacity:.72';status.after(tuneStatus);
+ let crossOn=false;
+ const sendCfg=cfg=>{for(const c of conns)if(c.open)try{c.send({cfg})}catch{}};
+ addEventListener('keydown',e=>{if(e.repeat&&e.key.toLowerCase()==='g')return;if(e.key==='['||e.key===']'){e.preventDefault();sendCfg({lensDelta:e.key===']'?.5:-.5})}else if(e.key.toLowerCase()==='g'){crossOn=!crossOn;sendCfg({cross:crossOn})}});
  const hostStatus=()=>{status.textContent=conns.size?`MASTER · ${conns.size} headset${conns.size>1?'s':''} connected`:'MASTER · waiting for headset (scan QR)';};
  function showQR(url){
   qrBox.textContent='';qrLink.href=url;qrLink.textContent=url;
+  document.getElementById('qrtext').innerHTML=`Room code <b style="letter-spacing:.12em">${new URL(url).searchParams.get('room').toUpperCase()}</b>. Scan with the phone camera, tap “Enter VR”, then place the phone in the Cardboard headset.`;
   if(window.QRCode)new QRCode(qrBox,{text:url,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});else qrBox.textContent='QR library failed to load · open the link below on the phone';
-  if(/^(localhost|127\.|\[::1\])/.test(location.hostname))document.getElementById('qrtext').textContent='Note: this link points to localhost, which a phone cannot open. Use the deployed GitHub Pages URL for phone testing.';
+  if(/^(localhost|127\.|\[::1\])/.test(location.hostname))document.getElementById('qrtext').insertAdjacentText('beforeend',' Note: this link points to localhost, which a phone cannot open. Use the deployed GitHub Pages URL for phone testing.');
  }
  function startHost(){
   if(!window.Peer){status.textContent='Sync library failed to load · check your connection';qrBox.textContent='Unavailable';return}
@@ -89,7 +114,7 @@ if(role==='controller'){
   peer.on('open',()=>{store('liminalRoom',code);showQR(headsetUrl(code));hostStatus()});
   peer.on('connection',c=>{
    c.on('open',()=>{c.lastSeen=performance.now();conns.add(c);setQrOpen(false);hostStatus()});
-   c.on('data',()=>{c.lastSeen=performance.now()});
+   c.on('data',d=>{c.lastSeen=performance.now();if(d&&d.cfgAck){const a=d.cfgAck;tuneStatus.textContent=`Headset: lens spacing ${a.lensMm.toFixed(1)} mm · cross ${a.cross?'on':'off'} · screen scale ${a.measured?'measured':'estimated'}`}});
    const drop=()=>{if(!conns.delete(c))return;if(!conns.size)setQrOpen(true);hostStatus()};
    c.on('close',drop);c.on('error',drop);c.drop=drop;
   });
@@ -112,15 +137,43 @@ if(role==='headset'){
  let wakeLock=null;
  async function keepAwake(){try{if('wakeLock' in navigator&&document.visibilityState==='visible')wakeLock=await navigator.wakeLock.request('screen')}catch{}}
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&document.body.classList.contains('headset-ready'))keepAwake()});
- document.getElementById('enterbtn').onclick=async()=>{
+ const enterBtn=document.getElementById('enterbtn'),install=document.getElementById('install');
+ const standalone=matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+ const canFullscreen=!!(document.fullscreenEnabled||document.webkitFullscreenEnabled);
+ // iPhone Safari has no element fullscreen (iPad only); a Home Screen web app is the only way to drop its UI.
+ const isIPhone=/iPhone|iPod/.test(navigator.userAgent);
+ if(!standalone&&(isIPhone||!canFullscreen)){install.hidden=false;enterBtn.hidden=true}
+ document.getElementById('safaribtn').onclick=()=>{install.hidden=true;enterBtn.hidden=false};
+ enterBtn.onclick=async()=>{
   document.body.classList.add('headset-ready');
   const el=document.documentElement;
-  try{await (el.requestFullscreen||el.webkitRequestFullscreen)?.call(el,{navigationUI:'hide'})}catch{}
+  if(!standalone&&canFullscreen)try{await (el.requestFullscreen||el.webkitRequestFullscreen).call(el,{navigationUI:'hide'})}catch{}
   try{await screen.orientation?.lock?.('landscape')}catch{}
   keepAwake();
  };
+ // If the viewer leaves fullscreen (e.g. Android back gesture), bring the enter screen back so one tap restores it.
+ const onFsChange=()=>{if(canFullscreen&&!standalone&&!(document.fullscreenElement||document.webkitFullscreenElement)){document.body.classList.remove('headset-ready');enterBtn.textContent='TAP TO RE-ENTER VR'}};
+ document.addEventListener('fullscreenchange',onFsChange);document.addEventListener('webkitfullscreenchange',onFsChange);
+ const calibPanel=document.getElementById('calib'),card=document.getElementById('card'),cardW=document.getElementById('cardw'),calibState=document.getElementById('calibstate');
+ const showCalibState=()=>calibState.textContent=`Screen scale: ${calib.measured?'measured':'estimated'+(IS_IPHONE?' (iPhone spec)':' — calibrate for best results')} · lens spacing ${calib.lensMm.toFixed(1)} mm`;
+ showCalibState();
+ const sizeCard=()=>{const w=+cardW.value;card.style.width=w+'px';card.style.height=(w*53.98/CARD_MM)+'px'};
+ cardW.oninput=sizeCard;
+ document.getElementById('caliblink').onclick=e=>{e.preventDefault();cardW.value=Math.round(CARD_MM/calib.mmPerCss);sizeCard();calibPanel.hidden=false};
+ document.getElementById('calibcancel').onclick=()=>calibPanel.hidden=true;
+ document.getElementById('calibsave').onclick=()=>{calib.mmPerCss=CARD_MM/+cardW.value;calib.measured=true;saveCalib();showCalibState();calibPanel.hidden=true};
+ document.getElementById('calibreset').onclick=()=>{calib.mmPerCss=guessMmPerCss();calib.measured=false;calib.lensMm=VIEWER.interLensMm;saveCalib();showCalibState();calibPanel.hidden=true};
+ // Live tuning from the laptop while the phone is inside the viewer; shown once per eye so it reads fused.
+ let toastTimer=null;
+ function toast(msg){const g=vrGeometry(),k=canvas.width/innerWidth;for(const [id,x] of [['toastL',g.lx],['toastR',g.rx]]){const t=document.getElementById(id);t.textContent=msg;t.style.left=(x/k)+'px';t.classList.add('show')}clearTimeout(toastTimer);toastTimer=setTimeout(()=>{for(const id of ['toastL','toastR'])document.getElementById(id).classList.remove('show')},1800)}
+ applyCfg=(c,reply)=>{
+  if(Number.isFinite(c.lensDelta)){calib.lensMm=Math.max(50,Math.min(75,Math.round((calib.lensMm+c.lensDelta)*10)/10));saveCalib();toast(`Lens spacing ${calib.lensMm.toFixed(1)} mm`)}
+  if(typeof c.cross==='boolean'){calib.cross=c.cross;toast(c.cross?'Alignment cross on':'Alignment cross off')}
+  showCalibState();reply({cfgAck:{lensMm:calib.lensMm,cross:calib.cross,measured:calib.measured}});
+ };
+ document.getElementById('roomlink').onclick=e=>{e.preventDefault();const c=(prompt('Room code shown on the laptop:')||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');if(c)location.replace(headsetUrl(c))};
  const code=params.get('room');
- if(!code){setLink('No room code in this link. Scan the QR code shown on the laptop.',false);document.getElementById('enterbtn').style.display='none'}
+ if(!code){setLink('No room code yet. Scan the QR code on the laptop, or enter its room code below.',false);enterBtn.hidden=true;install.hidden=true}
  else if(!window.Peer)setLink('Sync library failed to load · check your connection and reload.',false);
  else{
   setLink('Connecting to laptop…',false);
@@ -135,7 +188,7 @@ if(role==='headset'){
    // Some networks silently block WebRTC; don't wait forever for a link that never opens.
    openTimer=setTimeout(()=>{if(c===conn&&!c.open){setLink('Still connecting… if this persists, try another network (e.g. mobile data).',false);try{c.close()}catch{};schedule(500)}},12000);
    c.on('open',()=>{if(c!==conn)return;clearTimeout(openTimer);lastSeq=-1;lastData=performance.now();setLink('Connected to laptop',true)});
-   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
+   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
    c.on('close',()=>{if(c!==conn)return;synced=false;setLink('Connection lost · reconnecting…',false);schedule()});
   }
   // The laptop streams state ~30x/s even when standing still, so silence means the link is dead.
@@ -191,5 +244,5 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   const k=1-Math.exp(-dt*18);pos.x+=(px-pos.x)*k;pos.y+=(target.y-pos.y)*k;pos.z+=(pz-pos.z)*k;
   let dy=((target.yaw-yaw+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;yaw+=dy*k;pitch+=(target.pitch-pitch)*k;
  }
- gl.uniform2f(ur,canvas.width,canvas.height);gl.uniform1f(ut,now/1000);gl.uniform3f(uc,pos.x,pos.y,pos.z);gl.uniform2f(urot,yaw,pitch);gl.uniform1f(uvr,vr?1:0);gl.uniform1f(ue,.027);gl.uniform1f(uconv,4.0);gl.uniform1f(udist,.10);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(loop)}requestAnimationFrame(loop);
+ gl.uniform2f(ur,canvas.width,canvas.height);gl.uniform1f(ut,now/1000);gl.uniform3f(uc,pos.x,pos.y,pos.z);gl.uniform2f(urot,yaw,pitch);gl.uniform1f(uvr,vr?1:0);const g=vrGeometry();gl.uniform1f(ue,g.eyeHalf);gl.uniform2f(uLensL,g.lx,g.ly);gl.uniform2f(uLensR,g.rx,g.ly);gl.uniform1f(uPxPerM,g.pxPerM);gl.uniform1f(uScreenLens,VIEWER.screenLensMm/1000);gl.uniform2f(uKd,VIEWER.k[0],VIEWER.k[1]);gl.uniform1f(uFovTan,Math.tan(VIEWER.fovDeg*Math.PI/180));gl.uniform1f(uCross,calib.cross?1:0);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(loop)}requestAnimationFrame(loop);
 </script></body></html>
