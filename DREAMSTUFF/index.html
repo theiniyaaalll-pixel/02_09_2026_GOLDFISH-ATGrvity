@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Liminal VR Walk v6</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020305;color:#eee;font-family:system-ui,sans-serif}canvas{width:100%;height:100%;display:block;touch-action:none}.ui{position:fixed;left:16px;top:16px;z-index:3;background:#090b0dcc;border:1px solid #ffffff22;border-radius:14px;padding:12px 14px;backdrop-filter:blur(10px);font-size:12px;line-height:1.45}.ui b{letter-spacing:.12em}.ui button{margin-top:8px;background:#eee;color:#111;border:0;border-radius:9px;padding:9px 12px;font-weight:700;cursor:pointer}.hint{opacity:.65;margin-top:6px}.vr .ui{opacity:.18}.headset .ui{display:none}.vr.headset-ready .ui{opacity:0;pointer-events:none}.touch{display:none;position:fixed;inset:auto 0 20px;z-index:4;justify-content:center;gap:12px}.touch button{width:62px;height:62px;border-radius:50%;border:1px solid #ffffff55;background:#0008;color:#fff;font-size:24px}@media(pointer:coarse){.touch{display:flex}.hint{display:none}}
+.reticle{display:none;position:fixed;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border:2px solid #fff8;border-radius:50%;z-index:5;box-sizing:border-box;pointer-events:none}.reticle.walking{border-color:#fff;background:#fff7;box-shadow:0 0 14px #fff8}.vr.headset-ready .reticle{display:block}
+.cam{display:none;position:fixed;right:14px;bottom:14px;width:220px;z-index:6;background:#050607dd;border:1px solid #ffffff2b;border-radius:14px;overflow:hidden}.controller .cam{display:block}.cam video{display:block;width:100%;transform:scaleX(-1)}.cam .camstat{padding:8px 10px;font:12px system-ui;color:#fff}.controller .touch{display:none!important}
+</style></head>
+<body><canvas id="c"></canvas><div class="cam" id="cam"><video id="webcam" autoplay playsinline muted></video><div class="camstat" id="camstat">Camera starting…</div></div><div class="reticle" id="reticle" aria-hidden="true"></div><div class="ui" id="ui"><b id="title">LIMINAL WALK</b><div class="hint" id="hint">WASD / arrows move · mouse look</div><div id="status" style="margin-top:5px;opacity:.72">Connecting…</div><button id="motion" style="display:none">ENABLE HEAD TRACKING</button><button id="vr">CARDBOARD VIEW</button></div><div class="touch"><button data-k="a">←</button><button data-k="w">↑</button><button data-k="s">↓</button><button data-k="d">→</button></div>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script>
+const canvas=document.getElementById('c'),gl=canvas.getContext('webgl',{antialias:false,alpha:false});
+if(!gl) document.body.innerHTML='<p style="padding:2rem">WebGL is required.</p>';
+const V=`attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}`;
+const F=`precision highp float;uniform vec2 r;uniform float t;uniform vec3 cp;uniform vec2 rot;uniform float vr;uniform float eye;uniform float converge;uniform float distortion;
+#define MAX 82
+float box(vec3 p,vec3 b){vec3 q=abs(p)-b;return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.);}
+float cyl(vec3 p,float h,float rad){vec2 d=abs(vec2(length(p.xz),p.y))-vec2(rad,h);return min(max(d.x,d.y),0.)+length(max(d,0.));}
+float arch(vec3 p){p.z=mod(p.z+6.,12.)-6.;float outer=box(p-vec3(0.,3.2,0.),vec3(5.2,3.2,.65));float inner=box(p-vec3(0.,3.1,0.),vec3(3.9,2.55,1.));return max(outer,-inner);}
+float map(vec3 p){float d=p.y; d=min(d,arch(p));vec3 q=p;q.x=abs(mod(q.x+14.,28.)-14.);q.z=mod(q.z+9.,18.)-9.;d=min(d,cyl(q-vec3(9.,2.6,0.),2.6,.72));vec3 w=p;w.z=mod(w.z+24.,48.)-24.;d=min(d,box(w-vec3(0.,.7,0.),vec3(2.3,.7,5.)));return d;}
+vec3 norm(vec3 p){vec2 e=vec2(.003,0);return normalize(vec3(map(p+e.xyy)-map(p-e.xyy),map(p+e.yxy)-map(p-e.yxy),map(p+e.yyx)-map(p-e.yyx)));}
+float trace(vec3 ro,vec3 rd,out vec3 p){float d=0.;for(int i=0;i<MAX;i++){p=ro+rd*d;float h=map(p);if(h<.003||d>85.)break;d+=h*.72;}return d;}
+vec3 sky(vec3 rd){float h=max(rd.y,0.);return mix(vec3(.018,.025,.04),vec3(.055,.075,.105),h);}
+void main(){vec2 fc=gl_FragCoord.xy;vec2 uv=(2.*fc-r)/r.y;float side=0.;float lensEdge=0.;if(vr>.5){
+// Reference-style Cardboard layout: two near-square eye images touching at the center.
+// Any extra-wide screen space becomes black side bars, never a center gap.
+float eyeSize=min(r.y,r.x*.5);
+float pairW=eyeSize*2.;
+float x0=(r.x-pairW)*.5;
+if(fc.x<x0||fc.x>x0+pairW){gl_FragColor=vec4(0,0,0,1);return;}
+float ex=fc.x-x0;
+side=step(eyeSize,ex);
+vec2 local=vec2(ex-side*eyeSize,fc.y);
+vec2 ln=(local-vec2(eyeSize*.5,r.y*.5))/(eyeSize*.5);
+// Cardboard pre-warp: counteracts the physical lens so the fused view looks flatter.
+float rr=dot(ln,ln);
+uv=ln*(1.0+distortion*rr);
+}
+float cy=cos(rot.x),sy=sin(rot.x),cx=cos(rot.y),sx=sin(rot.y);vec3 fw=normalize(vec3(sy*cx,sx,cy*cx)),rt=normalize(vec3(cy,0.,-sy)),up=normalize(cross(rt,fw));
+float es=(side*2.-1.);vec3 ro=cp+rt*eye*es;
+// Toe-in is avoided: parallel eye cameras use an off-axis convergence correction.
+vec3 rd=normalize(fw+(uv.x-eye*es/max(converge,.5))*rt+uv.y*up);
+vec3 p;float dist=trace(ro,rd,p);vec3 col=sky(rd);if(dist<85.){vec3 n=norm(p);float diff=.18+.28*max(dot(n,normalize(vec3(-.3,.8,-.2))),0.);float stripes=.5+.5*sin(p.z*.48);vec3 warm=vec3(1.0,.48,.16);float lamps=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/3.),8.);float edge=exp(-abs(p.y-.08)*18.)*exp(-abs(abs(p.x)-4.5)*2.);col=vec3(.09,.075,.065)*diff;col+=warm*(lamps*.48+edge*.35);if(p.y<.02){vec3 rr=reflect(rd,n);col=mix(col,sky(rr)+warm*.16,.46);}float fog=1.-exp(-dist*.027);col=mix(col,vec3(.018,.024,.032),fog);}
+float glow=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/5.),10.)*.08;col+=vec3(1.,.35,.08)*glow;col=col/(col+.72);col=pow(col,vec3(.78));float vig=1.-.18*dot(uv,uv);col*=vig;float grain=fract(sin(dot(fc+floor(t*24.),vec2(12.9898,78.233)))*43758.5453);col+=(grain-.5)*.018;if(vr>.5){col.r+=lensEdge*.025;col.b+=lensEdge*.018;col*=1.-lensEdge*.13;}gl_FragColor=vec4(col,1);}`;
+function shader(type,src){let s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}let pr=gl.createProgram();gl.attachShader(pr,shader(gl.VERTEX_SHADER,V));gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,F));gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);let b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);let a=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+const U=n=>gl.getUniformLocation(pr,n),ur=U('r'),ut=U('t'),uc=U('cp'),urot=U('rot'),uvr=U('vr'),ue=U('eye'),uconv=U('converge'),udist=U('distortion');let pos={x:0,y:1.68,z:7},yaw=Math.PI,pitch=0,keys={},vr=false,last=performance.now();
+function resize(){let d=Math.min(devicePixelRatio,1.5);canvas.width=Math.floor(innerWidth*d);canvas.height=Math.floor(innerHeight*d);gl.viewport(0,0,canvas.width,canvas.height)}addEventListener('resize',resize);resize();
+const params=new URLSearchParams(location.search), role=params.get('mode')||'solo';
+const status=document.getElementById('status'), motionBtn=document.getElementById('motion'), vrBtn=document.getElementById('vr');
+if(role==='headset'){vr=true;document.body.classList.add('vr','headset');document.getElementById('title').textContent='CARDBOARD HEADSET';document.getElementById('hint').textContent='Mirroring laptop simulation';vrBtn.style.display='none';motionBtn.style.display='none';document.querySelector('.touch').style.display='none';}
+if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').textContent='MASTER SIMULATION';document.getElementById('hint').textContent='👍👍 = forward · keyboard also works';vrBtn.style.display='none';}
+function normalizedKey(e){const k=e.key.toLowerCase();return ({arrowup:'w',arrowdown:'s',arrowleft:'a',arrowright:'d'})[k]||k}
+addEventListener('keydown',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=true}});
+addEventListener('keyup',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=false}});
+addEventListener('blur',()=>{for(const k of ['w','a','s','d','shift'])keys[k]=false});
+if(role!=='headset'){canvas.addEventListener('click',()=>canvas.requestPointerLock?.());addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){yaw-=e.movementX*.0022;pitch=Math.max(-1.25,Math.min(1.25,pitch-e.movementY*.0022))}})}
+vrBtn.onclick=()=>{vr=!vr;document.body.classList.toggle('vr',vr);vrBtn.textContent=vr?'NORMAL VIEW':'CARDBOARD VIEW'};
+let synced=false,lastSeq=-1;
+let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,serverTime:0};
+if(role==='headset'){
+ const ev=new EventSource('/events');
+ ev.onopen=()=>status.textContent='SYNCED TO LAPTOP';
+ ev.onerror=()=>{synced=false;status.textContent='Waiting for laptop…'};
+ ev.onmessage=e=>{try{const x=JSON.parse(e.data);if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'}catch{}};
+}
+// Laptop webcam: both detected thumbs-up => forward. Keyboard remains a fallback for testing.
+let thumbsForward=false,detectedHands=0,detectedThumbs=0;
+const camstat=document.getElementById('camstat'),video=document.getElementById('webcam');
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function thumbUp(l){
+ const palm=dist(l[0],l[9]); if(palm<.03)return false;
+ const extended=dist(l[4],l[2])>palm*.72;
+ const above=l[4].y < l[2].y-palm*.10 && l[4].y < l[0].y-palm*.20;
+ let folded=0; for(const [tip,pip] of [[8,6],[12,10],[16,14],[20,18]]) if(l[tip].y>l[pip].y-palm*.05) folded++;
+ return extended&&above&&folded>=2;
+}
+async function startHands(){if(role!=='controller')return;
+ if(!window.Hands||!window.Camera){camstat.textContent='Hand tracker could not load · keyboard still works';return;}
+ try{
+  const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+  hands.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:.5,minTrackingConfidence:.5});
+  hands.onResults(r=>{const list=r.multiHandLandmarks||[];detectedHands=list.length;detectedThumbs=list.filter(thumbUp).length;thumbsForward=detectedHands>=2&&detectedThumbs>=2;camstat.textContent=`Hands ${detectedHands} · thumbs ${detectedThumbs} · ${thumbsForward?'FORWARD':'STOP'}`;});
+  const cam=new Camera(video,{onFrame:async()=>{await hands.send({image:video})},width:640,height:480});await cam.start();camstat.textContent='Show both thumbs up to move';
+ }catch(e){camstat.textContent='Camera unavailable · allow webcam permission';}
+}
+startHands();
+let walkVelocity=0,lastPost=0,postBusy=false;
+function publish(now,moving,source,vx=0,vz=0){if(role!=='controller'||postBusy||now-lastPost<32)return;lastPost=now;postBusy=true;fetch('/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,moving,source})}).catch(()=>status.textContent='Phone sync disconnected').finally(()=>postBusy=false)}
+if(role==='controller')status.textContent='MASTER · phone mirrors this position';
+if(role==='solo')status.textContent='Solo mode';
+function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
+ if(role!=='headset'){
+  const forward=!!keys.w||thumbsForward,back=!!keys.s,left=!!keys.a,right=!!keys.d,fast=!!keys.shift;
+  let target=forward?(fast?6.2:3.2):0;walkVelocity+=(target-walkVelocity)*Math.min(1,dt*5);if(back)walkVelocity=-3;
+  let fx=Math.sin(yaw),fz=Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);pos.x+=fx*walkVelocity*dt;pos.z+=fz*walkVelocity*dt;let side=3*dt;if(left){pos.x-=rx*side;pos.z-=rz*side}if(right){pos.x+=rx*side;pos.z+=rz*side}
+  publish(now,Math.abs(walkVelocity)>.08,thumbsForward?'thumbs':'keyboard',fx*walkVelocity,fz*walkVelocity);
+ } else if(synced){
+  // Predict between network packets, then gently correct to the laptop's authoritative pose.
+  const age=Math.min(.12,(performance.now()-target.serverTime)/1000);
+  const px=target.x+target.vx*age,pz=target.z+target.vz*age;
+  const k=1-Math.exp(-dt*18);pos.x+=(px-pos.x)*k;pos.y+=(target.y-pos.y)*k;pos.z+=(pz-pos.z)*k;
+  let dy=((target.yaw-yaw+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;yaw+=dy*k;pitch+=(target.pitch-pitch)*k;
+ }
+ gl.uniform2f(ur,canvas.width,canvas.height);gl.uniform1f(ut,now/1000);gl.uniform3f(uc,pos.x,pos.y,pos.z);gl.uniform2f(urot,yaw,pitch);gl.uniform1f(uvr,vr?1:0);gl.uniform1f(ue,.027);gl.uniform1f(uconv,4.0);gl.uniform1f(udist,.10);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(loop)}requestAnimationFrame(loop);
+</script></body></html>

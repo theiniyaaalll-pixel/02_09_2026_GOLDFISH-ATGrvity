@@ -1,13 +1,1 @@
-{
-  "name": "dream-vr-scene1",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "start": "node server/server.js"
-  },
-  "dependencies": {
-    "express": "^4.21.2",
-    "ws": "^8.18.0"
-  }
-}
+{"name":"liminal-vr-cardboard-controller","private":true,"type":"module","scripts":{"start":"node server.mjs"}}
