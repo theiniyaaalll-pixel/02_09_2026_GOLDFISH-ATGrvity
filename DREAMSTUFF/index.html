@@ -5,10 +5,15 @@
 <title>Liminal VR Walk v6</title>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020305;color:#eee;font-family:system-ui,sans-serif}canvas{width:100%;height:100%;display:block;touch-action:none}.ui{position:fixed;left:16px;top:16px;z-index:3;background:#090b0dcc;border:1px solid #ffffff22;border-radius:14px;padding:12px 14px;backdrop-filter:blur(10px);font-size:12px;line-height:1.45}.ui b{letter-spacing:.12em}.ui button{margin-top:8px;background:#eee;color:#111;border:0;border-radius:9px;padding:9px 12px;font-weight:700;cursor:pointer}.hint{opacity:.65;margin-top:6px}.vr .ui{opacity:.18}.headset .ui{display:none}.vr.headset-ready .ui{opacity:0;pointer-events:none}.touch{display:none;position:fixed;inset:auto 0 20px;z-index:4;justify-content:center;gap:12px}.touch button{width:62px;height:62px;border-radius:50%;border:1px solid #ffffff55;background:#0008;color:#fff;font-size:24px}@media(pointer:coarse){.touch{display:flex}.hint{display:none}}
-.reticle{display:none;position:fixed;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border:2px solid #fff8;border-radius:50%;z-index:5;box-sizing:border-box;pointer-events:none}.reticle.walking{border-color:#fff;background:#fff7;box-shadow:0 0 14px #fff8}.vr.headset-ready .reticle{display:block}
+.reticle{display:none;position:fixed;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border:2px solid #fff8;border-radius:50%;z-index:5;box-sizing:border-box;pointer-events:none}.reticle.walking{border-color:#fff;background:#fff7;box-shadow:0 0 14px #fff8}.vr.headset-ready .reticle{display:block}.headset .reticle{display:none!important}
 .cam{display:none;position:fixed;right:14px;bottom:14px;width:220px;z-index:6;background:#050607dd;border:1px solid #ffffff2b;border-radius:14px;overflow:hidden}.controller .cam{display:block}.cam video{display:block;width:100%;transform:scaleX(-1)}.cam .camstat{padding:8px 10px;font:12px system-ui;color:#fff}.controller .touch{display:none!important}
-</style></head>
-<body><canvas id="c"></canvas><div class="cam" id="cam"><video id="webcam" autoplay playsinline muted></video><div class="camstat" id="camstat">Camera starting…</div></div><div class="reticle" id="reticle" aria-hidden="true"></div><div class="ui" id="ui"><b id="title">LIMINAL WALK</b><div class="hint" id="hint">WASD / arrows move · mouse look</div><div id="status" style="margin-top:5px;opacity:.72">Connecting…</div><button id="motion" style="display:none">ENABLE HEAD TRACKING</button><button id="vr">CARDBOARD VIEW</button></div><div class="touch"><button data-k="a">←</button><button data-k="w">↑</button><button data-k="s">↓</button><button data-k="d">→</button></div>
+.qr{display:none;position:fixed;right:14px;top:14px;z-index:6;width:236px;background:#050607ee;border:1px solid #ffffff2b;border-radius:14px;padding:12px;font-size:12px;line-height:1.4;backdrop-filter:blur(10px)}.controller .qr{display:block}.qrhead{display:flex;justify-content:space-between;align-items:center;gap:8px}.qrhead b{letter-spacing:.12em}.qrhead button{background:#ffffff1a;color:#eee;border:1px solid #ffffff33;border-radius:8px;padding:4px 9px;font-size:11px;cursor:pointer}.qrcode{margin-top:10px;background:#fff;padding:10px;border-radius:10px;width:200px;height:200px;display:flex;align-items:center;justify-content:center;color:#111}.qrcode img,.qrcode canvas{display:block}.qrtext{margin-top:8px;opacity:.75}.qr a{display:block;margin-top:6px;color:#9cf;word-break:break-all;font-size:11px}.qr.collapsed .qrbody{display:none}
+.enter{display:none;position:fixed;inset:0;z-index:10;background:#020305f2;align-items:center;justify-content:center;text-align:center;padding:24px;box-sizing:border-box}.headset .enter{display:flex}.headset.headset-ready .enter{display:none}.enter b{letter-spacing:.16em;font-size:15px}.enter p{opacity:.75;font-size:14px;max-width:340px;margin:12px auto}.enter button{margin-top:10px;background:#eee;color:#111;border:0;border-radius:12px;padding:16px 22px;font-weight:800;font-size:15px;letter-spacing:.06em}.enter .small{font-size:12px;opacity:.55}
+.banner{display:none;position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:7;background:#000c;border:1px solid #ffffff33;border-radius:10px;padding:8px 12px;font-size:12px;pointer-events:none}.headset-ready.offline .banner{display:block}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body><canvas id="c"></canvas><div class="cam" id="cam"><video id="webcam" autoplay playsinline muted></video><div class="camstat" id="camstat">Camera starting…</div></div><div class="reticle" id="reticle" aria-hidden="true"></div><div class="ui" id="ui"><b id="title">LIMINAL WALK</b><div class="hint" id="hint">WASD / arrows move · mouse look</div><div id="status" style="margin-top:5px;opacity:.72">Connecting…</div><button id="motion" style="display:none">ENABLE HEAD TRACKING</button><button id="vr">CARDBOARD VIEW</button></div><div class="touch"><button data-k="a">←</button><button data-k="w">↑</button><button data-k="s">↓</button><button data-k="d">→</button></div><div class="qr" id="qr"><div class="qrhead"><b>JOIN WITH A PHONE</b><button id="qrtoggle">Hide</button></div><div class="qrbody"><div class="qrcode" id="qrcode">Creating room…</div><div class="qrtext" id="qrtext">Scan with the phone camera, tap “Enter VR”, then place the phone in the Cardboard headset.</div><a id="qrlink" target="_blank" rel="noopener"></a></div></div><div class="enter" id="enter"><div><b>LIMINAL WALK · HEADSET</b><p id="enterstatus">Connecting to laptop…</p><button id="enterbtn">TAP TO ENTER VR</button><p class="small">Turn the phone sideways and place it in the Cardboard headset. The laptop controls the walk.</p></div></div><div class="banner" id="banner">Connection lost · reconnecting…</div>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script>
 const canvas=document.getElementById('c'),gl=canvas.getContext('webgl',{antialias:false,alpha:false});
@@ -47,7 +52,7 @@ float glow=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/5.),10.)*.08;col+=vec3(1.,.35,.
 function shader(type,src){let s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}let pr=gl.createProgram();gl.attachShader(pr,shader(gl.VERTEX_SHADER,V));gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,F));gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);let b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);let a=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
 const U=n=>gl.getUniformLocation(pr,n),ur=U('r'),ut=U('t'),uc=U('cp'),urot=U('rot'),uvr=U('vr'),ue=U('eye'),uconv=U('converge'),udist=U('distortion');let pos={x:0,y:1.68,z:7},yaw=Math.PI,pitch=0,keys={},vr=false,last=performance.now();
 function resize(){let d=Math.min(devicePixelRatio,1.5);canvas.width=Math.floor(innerWidth*d);canvas.height=Math.floor(innerHeight*d);gl.viewport(0,0,canvas.width,canvas.height)}addEventListener('resize',resize);resize();
-const params=new URLSearchParams(location.search), role=params.get('mode')||'solo';
+const params=new URLSearchParams(location.search), role=params.get('mode')||'controller';
 const status=document.getElementById('status'), motionBtn=document.getElementById('motion'), vrBtn=document.getElementById('vr');
 if(role==='headset'){vr=true;document.body.classList.add('vr','headset');document.getElementById('title').textContent='CARDBOARD HEADSET';document.getElementById('hint').textContent='Mirroring laptop simulation';vrBtn.style.display='none';motionBtn.style.display='none';document.querySelector('.touch').style.display='none';}
 if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').textContent='MASTER SIMULATION';document.getElementById('hint').textContent='👍👍 = forward · keyboard also works';vrBtn.style.display='none';}
@@ -59,11 +64,94 @@ if(role!=='headset'){canvas.addEventListener('click',()=>canvas.requestPointerLo
 vrBtn.onclick=()=>{vr=!vr;document.body.classList.toggle('vr',vr);vrBtn.textContent=vr?'NORMAL VIEW':'CARDBOARD VIEW'};
 let synced=false,lastSeq=-1;
 let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,serverTime:0};
+// Laptop <-> phone sync over a PeerJS (WebRTC) data channel. The laptop registers a short room
+// code with the public PeerJS broker; the phone gets that code from the QR link and connects directly.
+const ROOM_PREFIX='liminal-vr-';
+function store(k,v){try{v===undefined?sessionStorage.removeItem(k):sessionStorage.setItem(k,v)}catch{}}
+function recall(k){try{return sessionStorage.getItem(k)}catch{return null}}
+function makeCode(){const a='abcdefghjkmnpqrstuvwxyz23456789';let s='';for(const v of crypto.getRandomValues(new Uint8Array(6)))s+=a[v%a.length];return s}
+function headsetUrl(code){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('mode','headset');u.searchParams.set('room',code);return u.href}
+const conns=new Set();
+if(role==='controller'){
+ const qr=document.getElementById('qr'),qrToggle=document.getElementById('qrtoggle'),qrBox=document.getElementById('qrcode'),qrLink=document.getElementById('qrlink');
+ const setQrOpen=open=>{qr.classList.toggle('collapsed',!open);qrToggle.textContent=open?'Hide':'Show QR'};
+ qrToggle.onclick=()=>setQrOpen(qr.classList.contains('collapsed'));
+ const hostStatus=()=>{status.textContent=conns.size?`MASTER · ${conns.size} headset${conns.size>1?'s':''} connected`:'MASTER · waiting for headset (scan QR)';};
+ function showQR(url){
+  qrBox.textContent='';qrLink.href=url;qrLink.textContent=url;
+  if(window.QRCode)new QRCode(qrBox,{text:url,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});else qrBox.textContent='QR library failed to load · open the link below on the phone';
+  if(/^(localhost|127\.|\[::1\])/.test(location.hostname))document.getElementById('qrtext').textContent='Note: this link points to localhost, which a phone cannot open. Use the deployed GitHub Pages URL for phone testing.';
+ }
+ function startHost(){
+  if(!window.Peer){status.textContent='Sync library failed to load · check your connection';qrBox.textContent='Unavailable';return}
+  const code=recall('liminalRoom')||makeCode();
+  const peer=new Peer(ROOM_PREFIX+code,{debug:1});
+  peer.on('open',()=>{store('liminalRoom',code);showQR(headsetUrl(code));hostStatus()});
+  peer.on('connection',c=>{
+   c.on('open',()=>{c.lastSeen=performance.now();conns.add(c);setQrOpen(false);hostStatus()});
+   c.on('data',()=>{c.lastSeen=performance.now()});
+   const drop=()=>{if(!conns.delete(c))return;if(!conns.size)setQrOpen(true);hostStatus()};
+   c.on('close',drop);c.on('error',drop);c.drop=drop;
+  });
+  // WebRTC can take 10-30s to notice a vanished peer; phones ping every second, so drop silent ones fast.
+  setInterval(()=>{const now=performance.now();for(const c of [...conns])if(now-c.lastSeen>4000){try{c.close()}catch{};c.drop()}},1000);
+  addEventListener('pagehide',()=>peer.destroy());
+  // Losing the broker doesn't break existing phone links, but new phones need it to join.
+  peer.on('disconnected',()=>setTimeout(()=>{if(!peer.destroyed)try{peer.reconnect()}catch{}},1500));
+  peer.on('error',e=>{
+   if(e.type==='unavailable-id'){store('liminalRoom');peer.destroy();setTimeout(startHost,200);return}
+   if(e.type==='browser-incompatible'){status.textContent='This browser does not support WebRTC';return}
+   if(!conns.size)status.textContent='Sync server unreachable · retrying…';
+  });
+ }
+ startHost();
+}
 if(role==='headset'){
- const ev=new EventSource('/events');
- ev.onopen=()=>status.textContent='SYNCED TO LAPTOP';
- ev.onerror=()=>{synced=false;status.textContent='Waiting for laptop…'};
- ev.onmessage=e=>{try{const x=JSON.parse(e.data);if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'}catch{}};
+ const enterStatus=document.getElementById('enterstatus'),banner=document.getElementById('banner');
+ const setLink=(msg,online)=>{enterStatus.textContent=msg;banner.textContent=msg;document.body.classList.toggle('offline',!online)};
+ let wakeLock=null;
+ async function keepAwake(){try{if('wakeLock' in navigator&&document.visibilityState==='visible')wakeLock=await navigator.wakeLock.request('screen')}catch{}}
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&document.body.classList.contains('headset-ready'))keepAwake()});
+ document.getElementById('enterbtn').onclick=async()=>{
+  document.body.classList.add('headset-ready');
+  const el=document.documentElement;
+  try{await (el.requestFullscreen||el.webkitRequestFullscreen)?.call(el,{navigationUI:'hide'})}catch{}
+  try{await screen.orientation?.lock?.('landscape')}catch{}
+  keepAwake();
+ };
+ const code=params.get('room');
+ if(!code){setLink('No room code in this link. Scan the QR code shown on the laptop.',false);document.getElementById('enterbtn').style.display='none'}
+ else if(!window.Peer)setLink('Sync library failed to load · check your connection and reload.',false);
+ else{
+  setLink('Connecting to laptop…',false);
+  const peer=new Peer({debug:1});let conn=null,retry=null,openTimer=null;
+  const schedule=(ms=2000)=>{clearTimeout(retry);retry=setTimeout(connect,ms)};
+  function connect(){
+   clearTimeout(retry);clearTimeout(openTimer);
+   if(peer.destroyed)return;if(peer.disconnected){try{peer.reconnect()}catch{};return}
+   if(conn&&conn.open)return;
+   try{conn?.close()}catch{}
+   const c=conn=peer.connect(ROOM_PREFIX+code,{serialization:'json',reliable:false});
+   // Some networks silently block WebRTC; don't wait forever for a link that never opens.
+   openTimer=setTimeout(()=>{if(c===conn&&!c.open){setLink('Still connecting… if this persists, try another network (e.g. mobile data).',false);try{c.close()}catch{};schedule(500)}},12000);
+   c.on('open',()=>{if(c!==conn)return;clearTimeout(openTimer);lastSeq=-1;lastData=performance.now();setLink('Connected to laptop',true)});
+   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
+   c.on('close',()=>{if(c!==conn)return;synced=false;setLink('Connection lost · reconnecting…',false);schedule()});
+  }
+  // The laptop streams state ~30x/s even when standing still, so silence means the link is dead.
+  let lastData=0;
+  setInterval(()=>{if(!conn||!conn.open)return;try{conn.send({ping:1})}catch{}
+   if(performance.now()-lastData>3000){const c=conn;conn=null;try{c.close()}catch{};synced=false;setLink('Connection lost · reconnecting…',false);schedule(500)}},1000);
+  addEventListener('pagehide',()=>peer.destroy());
+  peer.on('open',connect);
+  peer.on('disconnected',()=>setTimeout(()=>{if(!peer.destroyed)try{peer.reconnect()}catch{}},1500));
+  peer.on('error',e=>{
+   if(e.type==='peer-unavailable')setLink('Laptop not found · is the laptop page still open?',false);
+   else if(e.type==='browser-incompatible'){setLink('This browser does not support WebRTC.',false);return}
+   else if(!(conn&&conn.open))setLink('Connection problem · retrying…',false);
+   if(!(conn&&conn.open))schedule(3000);
+  });
+ }
 }
 // Laptop webcam: both detected thumbs-up => forward. Keyboard remains a fallback for testing.
 let thumbsForward=false,detectedHands=0,detectedThumbs=0;
@@ -86,9 +174,9 @@ async function startHands(){if(role!=='controller')return;
  }catch(e){camstat.textContent='Camera unavailable · allow webcam permission';}
 }
 startHands();
-let walkVelocity=0,lastPost=0,postBusy=false;
-function publish(now,moving,source,vx=0,vz=0){if(role!=='controller'||postBusy||now-lastPost<32)return;lastPost=now;postBusy=true;fetch('/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,moving,source})}).catch(()=>status.textContent='Phone sync disconnected').finally(()=>postBusy=false)}
-if(role==='controller')status.textContent='MASTER · phone mirrors this position';
+let walkVelocity=0,lastPost=0,sendSeq=0;
+function publish(now,moving,source,vx=0,vz=0){if(role!=='controller'||!conns.size||now-lastPost<32)return;lastPost=now;const msg={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,moving,source,seq:++sendSeq};for(const c of conns)if(c.open)try{c.send(msg)}catch{}}
+if(role==='controller'&&!conns.size)status.textContent='MASTER · creating room…';
 if(role==='solo')status.textContent='Solo mode';
 function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
  if(role!=='headset'){
