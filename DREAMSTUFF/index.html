@@ -63,8 +63,9 @@ const IS_IPHONE=/iPhone|iPod/.test(navigator.userAgent);
 // DPR 2 (Apple specs, render resolution); Android has no reliable source, so 1/160 inch is only a
 // starting guess — the card calibration replaces it with a measurement.
 function guessMmPerCss(){return IS_IPHONE?25.4*devicePixelRatio/(devicePixelRatio>=3?460:326):25.4/160}
-const calib={mmPerCss:guessMmPerCss(),measured:false,lensMm:VIEWER.interLensMm,stereoMm:VIEWER.stereoMm,kScale:1,cross:false};
+const calib={mmPerCss:guessMmPerCss(),measured:false,lensMm:VIEWER.interLensMm,stereoMm:VIEWER.stereoMm,kScale:0,cross:false};
 try{const s=JSON.parse(localStorage.getItem('liminalCalib')||'{}');if(s.mmPerCss>0.05&&s.mmPerCss<0.4){calib.mmPerCss=s.mmPerCss;calib.measured=true}if(s.lensMm>=50&&s.lensMm<=75)calib.lensMm=s.lensMm;if(s.stereoMm>=0&&s.stereoMm<=70)calib.stereoMm=s.stereoMm;if(s.kScale>=0&&s.kScale<=1.5)calib.kScale=s.kScale}catch{}
+try{if(localStorage.getItem('liminalOpticsVersion')!=='2'){calib.lensMm=VIEWER.interLensMm;calib.stereoMm=0;calib.kScale=0;localStorage.setItem('liminalOpticsVersion','2');saveCalib()}}catch{}
 function saveCalib(){try{localStorage.setItem('liminalCalib',JSON.stringify({mmPerCss:calib.measured?calib.mmPerCss:undefined,lensMm:calib.lensMm,stereoMm:calib.stereoMm,kScale:calib.kScale}))}catch{}}
 function vrGeometry(){
  const cssToCanvas=canvas.width/innerWidth,pxPerMm=cssToCanvas/calib.mmPerCss;
@@ -116,8 +117,9 @@ if(role==='controller'){
  }
  function startHost(){
   if(!window.Peer){status.textContent='Sync library failed to load · check your connection';qrBox.textContent='Unavailable';return}
-  const code=recall('liminalRoom')||makeCode();
-  const peer=new Peer(ROOM_PREFIX+code,{debug:1});
+  const code=makeCode();
+  store('liminalRoom',code);
+  const peer=new Peer(ROOM_PREFIX+code,PEER_OPTS);
   peer.on('open',()=>{showQR(headsetUrl(code));hostStatus()});
   peer.on('connection',c=>{
    c.on('open',()=>{c.lastSeen=performance.now();conns.add(c);setQrOpen(false);hostStatus()});
@@ -131,7 +133,7 @@ if(role==='controller'){
   // Losing the broker doesn't break existing phone links, but new phones need it to join.
   peer.on('disconnected',()=>setTimeout(()=>{if(!peer.destroyed)try{peer.reconnect()}catch{}},1500));
   peer.on('error',e=>{
-   if(e.type==='unavailable-id'){peer.destroy();setTimeout(startHost,250);return}
+   if(e.type==='unavailable-id'){store('liminalRoom');peer.destroy();setTimeout(startHost,250);return}
    if(e.type==='browser-incompatible'){status.textContent='This browser does not support WebRTC';return}
    if(!conns.size)status.textContent='Sync server unreachable · retrying…';
   });
@@ -169,7 +171,7 @@ if(role==='headset'){
  document.getElementById('caliblink').onclick=e=>{e.preventDefault();cardW.value=Math.round(CARD_MM/calib.mmPerCss);sizeCard();calibPanel.hidden=false};
  document.getElementById('calibcancel').onclick=()=>calibPanel.hidden=true;
  document.getElementById('calibsave').onclick=()=>{calib.mmPerCss=CARD_MM/+cardW.value;calib.measured=true;saveCalib();showCalibState();calibPanel.hidden=true};
- document.getElementById('calibreset').onclick=()=>{calib.mmPerCss=guessMmPerCss();calib.measured=false;calib.lensMm=VIEWER.interLensMm;calib.stereoMm=VIEWER.stereoMm;calib.kScale=1;saveCalib();showCalibState();calibPanel.hidden=true};
+ document.getElementById('calibreset').onclick=()=>{calib.mmPerCss=guessMmPerCss();calib.measured=false;calib.lensMm=VIEWER.interLensMm;calib.stereoMm=VIEWER.stereoMm;calib.kScale=0;saveCalib();showCalibState();calibPanel.hidden=true};
  // Live tuning from the laptop while the phone is inside the viewer; shown once per eye so it reads fused.
  let toastTimer=null;
  function toast(msg){const g=vrGeometry(),k=canvas.width/innerWidth;for(const [id,x] of [['toastL',g.lx],['toastR',g.rx]]){const t=document.getElementById(id);t.textContent=msg;t.style.left=(x/k)+'px';t.classList.add('show')}clearTimeout(toastTimer);toastTimer=setTimeout(()=>{for(const id of ['toastL','toastR'])document.getElementById(id).classList.remove('show')},1800)}
@@ -194,9 +196,12 @@ if(role==='headset'){
    if(conn&&conn.open)return;
    try{conn?.close()}catch{}
    const c=conn=peer.connect(ROOM_PREFIX+code,{serialization:'json',reliable:true});
+   attempts++;
+   const watchIce=()=>{const pc=c.peerConnection;if(!pc)return;pc.addEventListener('iceconnectionstatechange',()=>{if(c!==conn||c.open)return;const st=pc.iceConnectionState;if(st==='failed'){setLink('Direct WebRTC path failed · retrying…',false);try{c.close()}catch{};schedule(500)}})};
+   watchIce();
    // Some networks silently block WebRTC; don't wait forever for a link that never opens.
    openTimer=setTimeout(()=>{if(c===conn&&!c.open){setLink(attempts>2?'Direct connection blocked on this network · retrying…':'Still connecting… retrying direct connection…',false);try{c.close()}catch{};schedule(500)}},12000);
-   c.on('open',()=>{if(c!==conn)return;clearTimeout(openTimer);lastSeq=-1;lastData=performance.now();setLink('Connected to laptop',true)});
+   c.on('open',()=>{if(c!==conn)return;attempts=0;clearTimeout(openTimer);lastSeq=-1;lastData=performance.now();setLink('Connected to laptop',true)});
    c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
    c.on('close',()=>{if(c!==conn)return;synced=false;setLink('Connection lost · reconnecting…',false);schedule()});
   }
