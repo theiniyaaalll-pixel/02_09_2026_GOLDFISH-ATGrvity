@@ -33,9 +33,11 @@ float trace(vec3 ro,vec3 rd,out vec3 p){float d=0.;for(int i=0;i<MAX;i++){p=ro+r
 vec3 sky(vec3 rd){float h=max(rd.y,0.);return mix(vec3(.018,.025,.04),vec3(.055,.075,.105),h);}
 void main(){vec2 fc=gl_FragCoord.xy;vec2 uv=(2.*fc-r)/r.y;float side=0.;float lensEdge=0.;if(vr>.5){
 // Cardboard lens model, ported from Google's cardboard-vr-display (CardboardDistorter / DeviceInfo).
-// Each eye's projection centre sits exactly on its lens axis, so content at infinity lands on both
-// lens centres and the eyes look straight ahead to fuse it (no divergence).
-side=step(r.x*.5,fc.x);
+// The physical split between left and right eyes must follow the actual lens centres, not the middle
+// of the screen. If the screen is shifted within the Cardboard or the device is mismeasured, splitting
+// at r.x*0.5 produces a horizontal mismatch and causes partial eye fusion.
+float eyeMid=(lensL.x+lensR.x)*.5;
+side=step(eyeMid,fc.x);
 vec2 lens=mix(lensL,lensR,side);
 // No-lens tangent: physical offset from the lens axis divided by the screen-to-lens distance.
 vec2 tn=(fc-lens)/(pxPerM*screenLens);
@@ -65,12 +67,16 @@ const calib={mmPerCss:guessMmPerCss(),measured:false,lensMm:VIEWER.interLensMm,k
 try{const s=JSON.parse(localStorage.getItem('liminalCalib')||'{}');if(s.mmPerCss>0.05&&s.mmPerCss<0.4){calib.mmPerCss=s.mmPerCss;calib.measured=true}if(s.lensMm>=50&&s.lensMm<=75)calib.lensMm=s.lensMm;if(s.kScale>=0&&s.kScale<=1.5)calib.kScale=s.kScale}catch{}
 function saveCalib(){try{localStorage.setItem('liminalCalib',JSON.stringify({mmPerCss:calib.measured?calib.mmPerCss:undefined,lensMm:calib.lensMm,kScale:calib.kScale}))}catch{}}
 function vrGeometry(){
- const cssToCanvas=canvas.width/innerWidth,pxPerMm=cssToCanvas/calib.mmPerCss,half=calib.lensMm/2*pxPerMm;
+ const cssToCanvas=canvas.width/innerWidth,pxPerMm=cssToCanvas/calib.mmPerCss;
+ const lensOffsetPx=(calib.lensMm/2)*pxPerMm;
+ const centerX=canvas.width/2;
  // Lens axes are measured up from the phone's bottom edge; that only holds when the canvas reaches the
  // bottom of the physical screen (fullscreen / Home Screen app). Otherwise fall back to mid-height.
  const fullHeight=innerHeight>=Math.min(screen.width,screen.height)-2;
  const ly=fullHeight?(VIEWER.baselineMm-BEVEL_MM)*pxPerMm:canvas.height*.5;
- return {lx:canvas.width/2-half,rx:canvas.width/2+half,ly,pxPerM:pxPerMm*1000,eyeHalf:calib.lensMm/2000};
+ // Keep the rendered eye centres locked to the physical lens centres, not the screen midpoint.
+ // This is the key fix for binocular fusion in a Cardboard headset.
+ return {lx:centerX-lensOffsetPx,rx:centerX+lensOffsetPx,ly,pxPerM:pxPerMm*1000,eyeHalf:calib.lensMm/2000};
 }
 const params=new URLSearchParams(location.search), role=params.get('mode')||'controller';
 const status=document.getElementById('status'), motionBtn=document.getElementById('motion'), vrBtn=document.getElementById('vr');
