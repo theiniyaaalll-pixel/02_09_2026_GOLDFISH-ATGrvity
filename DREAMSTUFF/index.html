@@ -217,21 +217,27 @@ let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,walkSeconds:0,transition
 function angleDelta(a,b){return ((a-b+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI}
 function clamp01(x){return Math.max(0,Math.min(1,x))}
 function smooth01(x){x=clamp01(x);return x*x*(3.-2.*x)}
-function multiplyQuaternion(a,b){return [a[0]*b[0]-a[1]*b[1]-a[2]*b[2]-a[3]*b[3],a[0]*b[1]+a[1]*b[0]+a[2]*b[3]-a[3]*b[2],a[0]*b[2]-a[1]*b[3]+a[2]*b[0]+a[3]*b[1],a[0]*b[3]+a[1]*b[2]-a[2]*b[1]+a[3]*b[0]]}
-function axisQuaternion(x,y,z,a){const s=Math.sin(a*.5);return [Math.cos(a*.5),x*s,y*s,z*s]}
-function rotateVector(q,v){const p=[0,v[0],v[1],v[2]],inv=[q[0],-q[1],-q[2],-q[3]],r=multiplyQuaternion(multiplyQuaternion(q,p),inv);return r.slice(1)}
+// Phone head tracking. deviceorientation gives Z-X'-Y'' Euler angles in an east/north/up frame; rotating the
+// camera axis (out of the back of the phone) by them gives where the headset is looking, whatever the screen angle.
+let headLook=null,headBase=null,bodyYaw=yaw;
 function onDeviceOrientation(e){
  if(!headTrackingEnabled||e.alpha===null||e.beta===null||e.gamma===null)return;
- const rad=Math.PI/180,alpha=e.alpha*rad,beta=e.beta*rad,gamma=e.gamma*rad,screenAngle=(screen.orientation?.angle||window.orientation||0)*rad;
- let q=multiplyQuaternion(axisQuaternion(0,0,1,alpha),axisQuaternion(1,0,0,beta));
- q=multiplyQuaternion(q,axisQuaternion(0,1,0,gamma));
- q=multiplyQuaternion(q,axisQuaternion(0,0,1,-screenAngle));
- q=multiplyQuaternion(q,axisQuaternion(1,0,0,-Math.PI/2));
- const dir=rotateVector(q,[0,0,-1]),rawYaw=Math.atan2(dir[0],dir[2]),rawPitch=Math.asin(Math.max(-1,Math.min(1,dir[1])));
- if(!headOrientationBase)headOrientationBase={yaw:rawYaw,pitch:rawPitch,worldYaw:yaw,worldPitch:pitch};
- yaw=headOrientationBase.worldYaw+angleDelta(rawYaw,headOrientationBase.yaw);
- pitch=Math.max(-1.25,Math.min(1.25,headOrientationBase.worldPitch+rawPitch-headOrientationBase.pitch));
- const now=performance.now();if(now-lastHeadSend>35){lastHeadSend=now;publishHeadLook()}
+ const rad=Math.PI/180,a=e.alpha*rad,b=e.beta*rad,g=e.gamma*rad,sa=Math.sin(a),ca=Math.cos(a),sb=Math.sin(b),cb=Math.cos(b),sg=Math.sin(g),cg=Math.cos(g);
+ const east=-sg*ca-cg*sb*sa,north=-sg*sa+cg*sb*ca,upward=-cb*cg;
+ const heading=Math.atan2(east,north),elevation=Math.asin(Math.max(-1,Math.min(1,upward)));
+ // Heading is meaningless when looking straight up/down; hold the last value there.
+ if(Math.abs(upward)<.97||!headLook){
+  if(!headBase)headBase=heading;
+  headLook={yaw:angleDelta(heading,headBase),pitch:Math.max(-1.25,Math.min(1.25,elevation))};
+ }else headLook.pitch=Math.max(-1.25,Math.min(1.25,elevation));
+}
+// The direction you face when entering VR (or tapping the screen) becomes "straight ahead" along the laptop's view.
+function recenterHead(){headBase=null;headLook=null}
+async function startHeadTracking(){
+ // iOS only grants motion access from inside a tap, and before any other await.
+ try{if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission&&await DeviceOrientationEvent.requestPermission()!=='granted')return}catch{return}
+ if(!headTrackingEnabled){headTrackingEnabled=true;addEventListener('deviceorientation',onDeviceOrientation)}
+ recenterHead();
 }
 // Laptop <-> phone sync over a PeerJS (WebRTC) data channel. The laptop registers a short room
 // code with the public PeerJS broker; the phone gets that code from the QR link and connects directly.
@@ -294,12 +300,15 @@ if(role==='headset'){
  if(!standalone&&(isIPhone||!canFullscreen)){install.hidden=false;enterBtn.hidden=true}
  document.getElementById('safaribtn').onclick=()=>{install.hidden=true;enterBtn.hidden=false};
  enterBtn.onclick=async()=>{
+  const motion=startHeadTracking();
   document.body.classList.add('headset-ready');
   const el=document.documentElement;
   if(!standalone&&canFullscreen)try{await (el.requestFullscreen||el.webkitRequestFullscreen).call(el,{navigationUI:'hide'})}catch{}
   try{await screen.orientation?.lock?.('landscape')}catch{}
   keepAwake();
+  await motion;
  };
+ canvas.addEventListener('click',()=>{if(document.body.classList.contains('headset-ready'))recenterHead()});
  // If the viewer leaves fullscreen (e.g. Android back gesture), bring the enter screen back so one tap restores it.
  const onFsChange=()=>{if(canFullscreen&&!standalone&&!(document.fullscreenElement||document.webkitFullscreenElement)){document.body.classList.remove('headset-ready');enterBtn.textContent='TAP TO RE-ENTER VR'}};
  document.addEventListener('fullscreenchange',onFsChange);document.addEventListener('webkitfullscreenchange',onFsChange);
@@ -397,10 +406,11 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   const age=Math.min(.12,(performance.now()-target.serverTime)/1000);
   const px=target.x+target.vx*age,pz=target.z+target.vz*age;
   const k=1-Math.exp(-dt*18);pos.x+=(px-pos.x)*k;pos.y+=(target.y-pos.y)*k;pos.z+=(pz-pos.z)*k;
-  let dy=((target.yaw-yaw+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;yaw+=dy*k;pitch+=(target.pitch-pitch)*k;
+  bodyYaw+=angleDelta(target.yaw,bodyYaw)*k;yaw=bodyYaw;pitch+=(target.pitch-pitch)*k;
   walkSeconds=target.walkSeconds;
   if(target.transition||(walkSeconds>=10&&pitch>=.78))dreamTransition=true;
  }
+ if(headLook){yaw=bodyYaw+headLook.yaw;pitch=headLook.pitch}
  if(dreamTransition)document.body.classList.add('transitioning');
  gl.uniform2f(ur,canvas.width,canvas.height);gl.uniform1f(ut,now/1000);gl.uniform3f(uc,pos.x,pos.y,pos.z);gl.uniform2f(urot,yaw,pitch);gl.uniform1f(uvr,vr?1:0);const g=vrGeometry();gl.uniform1f(ue,g.eyeHalf);gl.uniform2f(uLensL,g.lx,g.ly);gl.uniform2f(uLensR,g.rx,g.ly);gl.uniform1f(uPxPerM,g.pxPerM);gl.uniform1f(uScreenLens,VIEWER.screenLensMm/1000);gl.uniform2f(uKd,VIEWER.k[0]*calib.kScale,VIEWER.k[1]*calib.kScale);gl.uniform1f(uFovTan,Math.tan(VIEWER.fovDeg*Math.PI/180));gl.uniform1f(uCross,calib.cross?1:0);gl.uniform1f(uTransition,dreamTransition?1:0);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(loop)}requestAnimationFrame(loop);
 </script></body></html>
