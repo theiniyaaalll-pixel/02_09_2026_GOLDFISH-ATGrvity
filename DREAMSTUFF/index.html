@@ -57,15 +57,15 @@ function shader(type,src){let s=gl.createShader(type);gl.shaderSource(s,src);gl.
 const U=n=>gl.getUniformLocation(pr,n),ur=U('r'),ut=U('t'),uc=U('cp'),urot=U('rot'),uvr=U('vr'),ue=U('eye'),uLensL=U('lensL'),uLensR=U('lensR'),uPxPerM=U('pxPerM'),uScreenLens=U('screenLens'),uKd=U('kd'),uFovTan=U('fovTan'),uCross=U('crossOn');let pos={x:0,y:1.68,z:7},yaw=Math.PI,pitch=0,keys={},vr=false,last=performance.now();
 function resize(){let d=Math.min(devicePixelRatio,1.5);canvas.width=Math.floor(innerWidth*d);canvas.height=Math.floor(innerHeight*d);gl.viewport(0,0,canvas.width,canvas.height)}addEventListener('resize',resize);resize();
 // Cardboard viewer optics: Google Cardboard I/O 2015 ("V2") values from cardboard-vr-display.
-const VIEWER={interLensMm:64,screenLensMm:39,baselineMm:35,k:[0.34,0.55],fovDeg:60},BEVEL_MM=4,CARD_MM=85.6;
+const VIEWER={interLensMm:64,screenLensMm:39,baselineMm:35,k:[0.34,0.55],fovDeg:60,stereoMm:0},BEVEL_MM=4,CARD_MM=85.6;
 const IS_IPHONE=/iPhone|iPod/.test(navigator.userAgent);
 // Physical size of one CSS pixel. Browsers don't expose it: iPhones are 460 ppi at DPR 3 and 326 ppi at
 // DPR 2 (Apple specs, render resolution); Android has no reliable source, so 1/160 inch is only a
 // starting guess — the card calibration replaces it with a measurement.
 function guessMmPerCss(){return IS_IPHONE?25.4*devicePixelRatio/(devicePixelRatio>=3?460:326):25.4/160}
-const calib={mmPerCss:guessMmPerCss(),measured:false,lensMm:VIEWER.interLensMm,kScale:1,cross:false};
-try{const s=JSON.parse(localStorage.getItem('liminalCalib')||'{}');if(s.mmPerCss>0.05&&s.mmPerCss<0.4){calib.mmPerCss=s.mmPerCss;calib.measured=true}if(s.lensMm>=50&&s.lensMm<=75)calib.lensMm=s.lensMm;if(s.kScale>=0&&s.kScale<=1.5)calib.kScale=s.kScale}catch{}
-function saveCalib(){try{localStorage.setItem('liminalCalib',JSON.stringify({mmPerCss:calib.measured?calib.mmPerCss:undefined,lensMm:calib.lensMm,kScale:calib.kScale}))}catch{}}
+const calib={mmPerCss:guessMmPerCss(),measured:false,lensMm:VIEWER.interLensMm,stereoMm:VIEWER.stereoMm,kScale:1,cross:false};
+try{const s=JSON.parse(localStorage.getItem('liminalCalib')||'{}');if(s.mmPerCss>0.05&&s.mmPerCss<0.4){calib.mmPerCss=s.mmPerCss;calib.measured=true}if(s.lensMm>=50&&s.lensMm<=75)calib.lensMm=s.lensMm;if(s.stereoMm>=0&&s.stereoMm<=70)calib.stereoMm=s.stereoMm;if(s.kScale>=0&&s.kScale<=1.5)calib.kScale=s.kScale}catch{}
+function saveCalib(){try{localStorage.setItem('liminalCalib',JSON.stringify({mmPerCss:calib.measured?calib.mmPerCss:undefined,lensMm:calib.lensMm,stereoMm:calib.stereoMm,kScale:calib.kScale}))}catch{}}
 function vrGeometry(){
  const cssToCanvas=canvas.width/innerWidth,pxPerMm=cssToCanvas/calib.mmPerCss;
  const lensOffsetPx=(calib.lensMm/2)*pxPerMm;
@@ -76,12 +76,12 @@ function vrGeometry(){
  const ly=fullHeight?(VIEWER.baselineMm-BEVEL_MM)*pxPerMm:canvas.height*.5;
  // Keep the rendered eye centres locked to the physical lens centres, not the screen midpoint.
  // This is the key fix for binocular fusion in a Cardboard headset.
- return {lx:centerX-lensOffsetPx,rx:centerX+lensOffsetPx,ly,pxPerM:pxPerMm*1000,eyeHalf:calib.lensMm/2000};
+ return {lx:centerX-lensOffsetPx,rx:centerX+lensOffsetPx,ly,pxPerM:pxPerMm*1000,eyeHalf:calib.stereoMm/2000};
 }
 const params=new URLSearchParams(location.search), role=params.get('mode')||'controller';
 const status=document.getElementById('status'), motionBtn=document.getElementById('motion'), vrBtn=document.getElementById('vr');
 if(role==='headset'){vr=true;document.body.classList.add('vr','headset');document.getElementById('title').textContent='CARDBOARD HEADSET';document.getElementById('hint').textContent='Mirroring laptop simulation';vrBtn.style.display='none';motionBtn.style.display='none';document.querySelector('.touch').style.display='none';}
-if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').textContent='MASTER SIMULATION';document.getElementById('hint').innerHTML='👍👍 = forward · keyboard also works<br>Headset tuning: <b>G</b> grid · <b>[ ]</b> spacing (Shift = 2 mm) · <b>- =</b> distortion';vrBtn.style.display='none';}
+if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').textContent='MASTER SIMULATION';document.getElementById('hint').innerHTML='👍👍 = forward · keyboard also works<br>Headset tuning: <b>G</b> grid · <b>[ ]</b> lens spacing · <b>; &apos;</b> stereo depth · <b>- =</b> distortion';vrBtn.style.display='none';}
 function normalizedKey(e){const k=e.key.toLowerCase();return ({arrowup:'w',arrowdown:'s',arrowleft:'a',arrowright:'d'})[k]||k}
 addEventListener('keydown',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=true}});
 addEventListener('keyup',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=false}});
@@ -93,6 +93,7 @@ let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,serverTime:0};
 // Laptop <-> phone sync over a PeerJS (WebRTC) data channel. The laptop registers a short room
 // code with the public PeerJS broker; the phone gets that code from the QR link and connects directly.
 const ROOM_PREFIX='liminal-vr-';
+const PEER_OPTS={debug:1,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}],iceCandidatePoolSize:6}};
 function store(k,v){try{v===undefined?localStorage.removeItem(k):localStorage.setItem(k,v)}catch{}}
 function recall(k){try{return localStorage.getItem(k)}catch{return null}}
 function makeCode(){const a='abcdefghjkmnpqrstuvwxyz23456789';let s='';for(const v of crypto.getRandomValues(new Uint8Array(6)))s+=a[v%a.length];return s}
@@ -105,7 +106,7 @@ if(role==='controller'){
  const tuneStatus=document.createElement('div');tuneStatus.style.cssText='margin-top:4px;opacity:.72';status.after(tuneStatus);
  let crossOn=false;
  const sendCfg=cfg=>{for(const c of conns)if(c.open)try{c.send({cfg})}catch{}};
- addEventListener('keydown',e=>{if(e.repeat&&e.key.toLowerCase()==='g')return;if(['[',']','{','}'].includes(e.key)){e.preventDefault();sendCfg({lensDelta:(e.key===']'||e.key==='}'?1:-1)*(e.shiftKey?2:.5)})}else if(e.key==='-'||e.key==='='){e.preventDefault();sendCfg({kDelta:e.key==='='?.1:-.1})}else if(e.key.toLowerCase()==='g'){crossOn=!crossOn;sendCfg({cross:crossOn})}});
+ addEventListener('keydown',e=>{if(e.repeat&&e.key.toLowerCase()==='g')return;if(['[',']','{','}'].includes(e.key)){e.preventDefault();sendCfg({lensDelta:(e.key===']'||e.key==='}'?1:-1)*(e.shiftKey?2:.5)})}else if(e.key===';'||e.key==="'"){e.preventDefault();sendCfg({stereoDelta:e.key==="'"?2:-2})}else if(e.key==='-'||e.key==='='){e.preventDefault();sendCfg({kDelta:e.key==='='?.1:-.1})}else if(e.key.toLowerCase()==='g'){crossOn=!crossOn;sendCfg({cross:crossOn})}});
  const hostStatus=()=>{status.textContent=conns.size?`MASTER · ${conns.size} headset${conns.size>1?'s':''} connected`:'MASTER · waiting for headset (scan QR)';};
  function showQR(url){
   qrBox.textContent='';qrLink.href=url;qrLink.textContent=url;
@@ -117,10 +118,10 @@ if(role==='controller'){
   if(!window.Peer){status.textContent='Sync library failed to load · check your connection';qrBox.textContent='Unavailable';return}
   const code=recall('liminalRoom')||makeCode();
   const peer=new Peer(ROOM_PREFIX+code,{debug:1});
-  peer.on('open',()=>{store('liminalRoom',code);showQR(headsetUrl(code));hostStatus()});
+  peer.on('open',()=>{showQR(headsetUrl(code));hostStatus()});
   peer.on('connection',c=>{
    c.on('open',()=>{c.lastSeen=performance.now();conns.add(c);setQrOpen(false);hostStatus()});
-   c.on('data',d=>{c.lastSeen=performance.now();if(d&&d.cfgAck){const a=d.cfgAck;tuneStatus.textContent=`Headset: lens spacing ${a.lensMm.toFixed(1)} mm · distortion ${Math.round(a.kScale*100)}% · grid ${a.cross?'on':'off'} · screen scale ${a.measured?'measured':'estimated'}`}});
+   c.on('data',d=>{c.lastSeen=performance.now();if(d&&d.cfgAck){const a=d.cfgAck;tuneStatus.textContent=`Headset: lens spacing ${a.lensMm.toFixed(1)} mm · stereo ${a.stereoMm.toFixed(0)} mm · distortion ${Math.round(a.kScale*100)}% · grid ${a.cross?'on':'off'} · screen scale ${a.measured?'measured':'estimated'}`}});
    const drop=()=>{if(!conns.delete(c))return;if(!conns.size)setQrOpen(true);hostStatus()};
    c.on('close',drop);c.on('error',drop);c.drop=drop;
   });
@@ -130,7 +131,7 @@ if(role==='controller'){
   // Losing the broker doesn't break existing phone links, but new phones need it to join.
   peer.on('disconnected',()=>setTimeout(()=>{if(!peer.destroyed)try{peer.reconnect()}catch{}},1500));
   peer.on('error',e=>{
-   if(e.type==='unavailable-id'){store('liminalRoom');peer.destroy();setTimeout(startHost,200);return}
+   if(e.type==='unavailable-id'){peer.destroy();setTimeout(startHost,250);return}
    if(e.type==='browser-incompatible'){status.textContent='This browser does not support WebRTC';return}
    if(!conns.size)status.textContent='Sync server unreachable · retrying…';
   });
@@ -161,22 +162,23 @@ if(role==='headset'){
  const onFsChange=()=>{if(canFullscreen&&!standalone&&!(document.fullscreenElement||document.webkitFullscreenElement)){document.body.classList.remove('headset-ready');enterBtn.textContent='TAP TO RE-ENTER VR'}};
  document.addEventListener('fullscreenchange',onFsChange);document.addEventListener('webkitfullscreenchange',onFsChange);
  const calibPanel=document.getElementById('calib'),card=document.getElementById('card'),cardW=document.getElementById('cardw'),calibState=document.getElementById('calibstate');
- const showCalibState=()=>calibState.textContent=`Screen scale: ${calib.measured?'measured':'estimated'+(IS_IPHONE?' (iPhone spec)':' — calibrate for best results')} · lens spacing ${calib.lensMm.toFixed(1)} mm · distortion ${Math.round(calib.kScale*100)}%`;
+ const showCalibState=()=>calibState.textContent=`Screen scale: ${calib.measured?'measured':'estimated'+(IS_IPHONE?' (iPhone spec)':' — calibrate for best results')} · lens spacing ${calib.lensMm.toFixed(1)} mm · stereo ${calib.stereoMm.toFixed(0)} mm · distortion ${Math.round(calib.kScale*100)}%`;
  showCalibState();
  const sizeCard=()=>{const w=+cardW.value;card.style.width=w+'px';card.style.height=(w*53.98/CARD_MM)+'px'};
  cardW.oninput=sizeCard;
  document.getElementById('caliblink').onclick=e=>{e.preventDefault();cardW.value=Math.round(CARD_MM/calib.mmPerCss);sizeCard();calibPanel.hidden=false};
  document.getElementById('calibcancel').onclick=()=>calibPanel.hidden=true;
  document.getElementById('calibsave').onclick=()=>{calib.mmPerCss=CARD_MM/+cardW.value;calib.measured=true;saveCalib();showCalibState();calibPanel.hidden=true};
- document.getElementById('calibreset').onclick=()=>{calib.mmPerCss=guessMmPerCss();calib.measured=false;calib.lensMm=VIEWER.interLensMm;calib.kScale=1;saveCalib();showCalibState();calibPanel.hidden=true};
+ document.getElementById('calibreset').onclick=()=>{calib.mmPerCss=guessMmPerCss();calib.measured=false;calib.lensMm=VIEWER.interLensMm;calib.stereoMm=VIEWER.stereoMm;calib.kScale=1;saveCalib();showCalibState();calibPanel.hidden=true};
  // Live tuning from the laptop while the phone is inside the viewer; shown once per eye so it reads fused.
  let toastTimer=null;
  function toast(msg){const g=vrGeometry(),k=canvas.width/innerWidth;for(const [id,x] of [['toastL',g.lx],['toastR',g.rx]]){const t=document.getElementById(id);t.textContent=msg;t.style.left=(x/k)+'px';t.classList.add('show')}clearTimeout(toastTimer);toastTimer=setTimeout(()=>{for(const id of ['toastL','toastR'])document.getElementById(id).classList.remove('show')},1800)}
  applyCfg=(c,reply)=>{
   if(Number.isFinite(c.lensDelta)){calib.lensMm=Math.max(50,Math.min(75,Math.round((calib.lensMm+c.lensDelta)*10)/10));saveCalib();toast(`Lens spacing ${calib.lensMm.toFixed(1)} mm`)}
-  if(Number.isFinite(c.kDelta)){calib.kScale=Math.max(0,Math.min(1.5,Math.round((calib.kScale+c.kDelta)*10)/10));saveCalib();toast(`Lens distortion ${Math.round(calib.kScale*100)}%`)}
+  if(Number.isFinite(c.stereoDelta)){calib.stereoMm=Math.max(0,Math.min(70,Math.round(calib.stereoMm+c.stereoDelta)));saveCalib();toast(`Stereo depth ${calib.stereoMm.toFixed(0)} mm`)}
+   if(Number.isFinite(c.kDelta)){calib.kScale=Math.max(0,Math.min(1.5,Math.round((calib.kScale+c.kDelta)*10)/10));saveCalib();toast(`Lens distortion ${Math.round(calib.kScale*100)}%`)}
   if(typeof c.cross==='boolean'){calib.cross=c.cross;toast(c.cross?'Alignment grid on':'Alignment grid off')}
-  showCalibState();reply({cfgAck:{lensMm:calib.lensMm,kScale:calib.kScale,cross:calib.cross,measured:calib.measured}});
+  showCalibState();reply({cfgAck:{lensMm:calib.lensMm,stereoMm:calib.stereoMm,kScale:calib.kScale,cross:calib.cross,measured:calib.measured}});
  };
  document.getElementById('roomlink').onclick=e=>{e.preventDefault();const c=(prompt('Room code shown on the laptop:')||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');if(c)location.replace(headsetUrl(c))};
  const code=params.get('room');
@@ -184,16 +186,16 @@ if(role==='headset'){
  else if(!window.Peer)setLink('Sync library failed to load · check your connection and reload.',false);
  else{
   setLink('Connecting to laptop…',false);
-  const peer=new Peer({debug:1});let conn=null,retry=null,openTimer=null;
-  const schedule=(ms=2000)=>{clearTimeout(retry);retry=setTimeout(connect,ms)};
+  const peer=new Peer(PEER_OPTS);let conn=null,retry=null,openTimer=null;
+  let attempts=0;const schedule=(ms=2000)=>{clearTimeout(retry);retry=setTimeout(connect,ms)};
   function connect(){
    clearTimeout(retry);clearTimeout(openTimer);
    if(peer.destroyed)return;if(peer.disconnected){try{peer.reconnect()}catch{};return}
    if(conn&&conn.open)return;
    try{conn?.close()}catch{}
-   const c=conn=peer.connect(ROOM_PREFIX+code,{serialization:'json',reliable:false});
+   const c=conn=peer.connect(ROOM_PREFIX+code,{serialization:'json',reliable:true});
    // Some networks silently block WebRTC; don't wait forever for a link that never opens.
-   openTimer=setTimeout(()=>{if(c===conn&&!c.open){setLink('Still connecting… if this persists, try another network (e.g. mobile data).',false);try{c.close()}catch{};schedule(500)}},12000);
+   openTimer=setTimeout(()=>{if(c===conn&&!c.open){setLink(attempts>2?'Direct connection blocked on this network · retrying…':'Still connecting… retrying direct connection…',false);try{c.close()}catch{};schedule(500)}},12000);
    c.on('open',()=>{if(c!==conn)return;clearTimeout(openTimer);lastSeq=-1;lastData=performance.now();setLink('Connected to laptop',true)});
    c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
    c.on('close',()=>{if(c!==conn)return;synced=false;setLink('Connection lost · reconnecting…',false);schedule()});
