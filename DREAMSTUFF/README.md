@@ -32,6 +32,8 @@ Repo **Settings → Pages → Source: Deploy from a branch → `main` / `(root)`
 
 `https://<user>.github.io/<repo>/DREAMSTUFF/`
 
+The QR code uses the exact landing-page URL open on the laptop, then adds the headset mode and room code. Keep the controller open at the deployed HTTPS address so phones can open the QR destination and connect.
+
 All paths are relative, so no build step is needed.
 
 ## Local development
