@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Liminal VR"><meta name="theme-color" content="#020305"><link rel="manifest" href="manifest.webmanifest">
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020305;color:#eee;font-family:system-ui,sans-serif}canvas{width:100%;height:100%;display:block;touch-action:none}.ui{position:fixed;left:16px;top:16px;z-index:3;background:#090b0dcc;border:1px solid #ffffff22;border-radius:14px;padding:12px 14px;backdrop-filter:blur(10px);font-size:12px;line-height:1.45}.ui b{letter-spacing:.12em}.ui button{margin-top:8px;background:#eee;color:#111;border:0;border-radius:9px;padding:9px 12px;font-weight:700;cursor:pointer}.hint{opacity:.65;margin-top:6px}.vr .ui{opacity:.18}.headset .ui{display:none}.vr.headset-ready .ui{opacity:0;pointer-events:none}.touch{display:none;position:fixed;inset:auto 0 20px;z-index:4;justify-content:center;gap:12px}.touch button{width:62px;height:62px;border-radius:50%;border:1px solid #ffffff55;background:#0008;color:#fff;font-size:24px}@media(pointer:coarse){.touch{display:flex}.hint{display:none}}
+.transitioning,.transitioning body{background:#fff!important}.transitioning .ui,.transitioning .cam,.transitioning .qr,.transitioning .reticle,.transitioning .touch,.transitioning .banner,.transitioning .enter,.transitioning .calib,.transitioning .vtoast{display:none!important}
+.swallowed,.swallowed body{background:#000!important}.swallowed .ui,.swallowed .cam,.swallowed .qr,.swallowed .reticle,.swallowed .touch,.swallowed .banner,.swallowed .enter,.swallowed .calib,.swallowed .vtoast{display:none!important}
 .reticle{display:none;position:fixed;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border:2px solid #fff8;border-radius:50%;z-index:5;box-sizing:border-box;pointer-events:none}.reticle.walking{border-color:#fff;background:#fff7;box-shadow:0 0 14px #fff8}.vr.headset-ready .reticle{display:block}.headset .reticle{display:none!important}
 .cam{display:none;position:fixed;right:14px;bottom:14px;width:220px;z-index:6;background:#050607dd;border:1px solid #ffffff2b;border-radius:14px;overflow:hidden}.controller .cam{display:block}.cam video{display:block;width:100%;transform:scaleX(-1)}.cam .camstat{padding:8px 10px;font:12px system-ui;color:#fff}.controller .touch{display:none!important}
 .qr{display:none;position:fixed;right:14px;top:14px;z-index:6;width:236px;background:#050607ee;border:1px solid #ffffff2b;border-radius:14px;padding:12px;font-size:12px;line-height:1.4;backdrop-filter:blur(10px)}.controller .qr{display:block}.qrhead{display:flex;justify-content:space-between;align-items:center;gap:8px}.qrhead b{letter-spacing:.12em}.qrhead button{background:#ffffff1a;color:#eee;border:1px solid #ffffff33;border-radius:8px;padding:4px 9px;font-size:11px;cursor:pointer}.qrcode{margin-top:10px;background:#fff;padding:10px;border-radius:10px;width:200px;height:200px;display:flex;align-items:center;justify-content:center;color:#111}.qrcode img,.qrcode canvas{display:block}.qrtext{margin-top:8px;opacity:.75}.qr a{display:block;margin-top:6px;color:#9cf;word-break:break-all;font-size:11px}.qr.collapsed .qrbody{display:none}
@@ -16,22 +18,54 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020305;col
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
-<body><canvas id="c"></canvas><div class="cam" id="cam"><video id="webcam" autoplay playsinline muted></video><div class="camstat" id="camstat">Camera starting…</div></div><div class="reticle" id="reticle" aria-hidden="true"></div><div class="ui" id="ui"><b id="title">LIMINAL WALK</b><div class="hint" id="hint">WASD / arrows move · mouse look</div><div id="status" style="margin-top:5px;opacity:.72">Connecting…</div><button id="motion" style="display:none">ENABLE HEAD TRACKING</button><button id="vr">CARDBOARD VIEW</button></div><div class="touch"><button data-k="a">←</button><button data-k="w">↑</button><button data-k="s">↓</button><button data-k="d">→</button></div><div class="qr" id="qr"><div class="qrhead"><b>JOIN WITH A PHONE</b><button id="qrtoggle">Hide</button></div><div class="qrbody"><div class="qrcode" id="qrcode">Creating room…</div><div class="qrtext" id="qrtext">Scan with the phone camera, tap “Enter VR”, then place the phone in the Cardboard headset.</div><a id="qrlink" target="_blank" rel="noopener"></a></div></div><div class="enter" id="enter"><div><b>LIMINAL WALK · HEADSET</b><p id="enterstatus">Connecting to laptop…</p><div class="install" id="install" hidden><p><b>Full screen on iPhone needs a one-time step.</b> Safari doesn’t let web pages hide its bars.</p><ol><li>Tap <b>Share</b> in Safari’s toolbar</li><li>Tap <b>Add to Home Screen</b> (keep “Open as Web App” on)</li><li>Open <b>Liminal VR</b> from your Home Screen</li></ol><p class="small">The icon reconnects to this laptop next time.</p><button class="ghost" id="safaribtn">Continue in Safari anyway</button></div><button id="enterbtn">TAP TO ENTER VR</button><p class="small">Turn the phone sideways and place it in the Cardboard headset. The laptop controls the walk.</p><p class="small"><a href="#" id="roomlink">Laptop showing a different room code?</a> · <a href="#" id="caliblink">Calibrate screen size</a></p><p class="small" id="calibstate"></p></div></div><div class="calib" id="calib" hidden><b>SCREEN SIZE</b><p id="calibmsg">Turn the phone sideways. Hold a standard bank/ID card (85.6 mm wide) against the screen and drag the slider until the green box is exactly as wide as the card.</p><div class="card" id="card"></div><input type="range" id="cardw" min="250" max="1100" step="1"><div class="row"><button id="calibsave">SAVE</button><button class="ghost" id="calibreset">Reset</button><button class="ghost" id="calibcancel">Cancel</button></div></div><div class="vtoast" id="toastL"></div><div class="vtoast" id="toastR"></div><div class="banner" id="banner">Connection lost · reconnecting…</div>
+<body><canvas id="c"></canvas><div class="cam" id="cam"><video id="webcam" autoplay playsinline muted></video><div class="camstat" id="camstat">Camera starting…</div></div><div class="reticle" id="reticle" aria-hidden="true"></div><div class="ui" id="ui"><b id="title">LIMINAL WALK</b><div class="hint" id="hint">WASD / arrows move · S / ↓ back · mouse look</div><div id="status" style="margin-top:5px;opacity:.72">Connecting…</div><button id="motion" style="display:none">ENABLE HEAD TRACKING</button><button id="vr">CARDBOARD VIEW</button></div><div class="touch"><button data-k="a">←</button><button data-k="w">↑</button><button data-k="s">↓</button><button data-k="d">→</button></div><div class="qr" id="qr"><div class="qrhead"><b>JOIN WITH A PHONE</b><button id="qrtoggle">Hide</button></div><div class="qrbody"><div class="qrcode" id="qrcode">Creating room…</div><div class="qrtext" id="qrtext">Scan with the phone camera, tap “Enter VR”, then place the phone in the Cardboard headset.</div><a id="qrlink" target="_blank" rel="noopener"></a></div></div><div class="enter" id="enter"><div><b>LIMINAL WALK · HEADSET</b><p id="enterstatus">Connecting to laptop…</p><div class="install" id="install" hidden><p><b>Full screen on iPhone needs a one-time step.</b> Safari doesn’t let web pages hide its bars.</p><ol><li>Tap <b>Share</b> in Safari’s toolbar</li><li>Tap <b>Add to Home Screen</b> (keep “Open as Web App” on)</li><li>Open <b>Liminal VR</b> from your Home Screen</li></ol><p class="small">The icon reconnects to this laptop next time.</p><button class="ghost" id="safaribtn">Continue in Safari anyway</button></div><button id="enterbtn">TAP TO ENTER VR</button><p class="small">Turn the phone sideways and place it in the Cardboard headset. The laptop controls the walk.</p><p class="small"><a href="#" id="roomlink">Laptop showing a different room code?</a> · <a href="#" id="caliblink">Calibrate screen size</a></p><p class="small" id="calibstate"></p></div></div><div class="calib" id="calib" hidden><b>SCREEN SIZE</b><p id="calibmsg">Turn the phone sideways. Hold a standard bank/ID card (85.6 mm wide) against the screen and drag the slider until the green box is exactly as wide as the card.</p><div class="card" id="card"></div><input type="range" id="cardw" min="250" max="1100" step="1"><div class="row"><button id="calibsave">SAVE</button><button class="ghost" id="calibreset">Reset</button><button class="ghost" id="calibcancel">Cancel</button></div></div><div class="vtoast" id="toastL"></div><div class="vtoast" id="toastR"></div><div class="banner" id="banner">Connection lost · reconnecting…</div>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script>
 const canvas=document.getElementById('c'),gl=canvas.getContext('webgl',{antialias:false,alpha:false});
 if(!gl) document.body.innerHTML='<p style="padding:2rem">WebGL is required.</p>';
 const V=`attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}`;
-const F=`precision highp float;uniform vec2 r;uniform float t;uniform vec3 cp;uniform vec2 rot;uniform float vr;uniform float eye;uniform vec2 lensL;uniform vec2 lensR;uniform float pxPerM;uniform float screenLens;uniform vec2 kd;uniform float fovTan;uniform float crossOn;
+const F=`precision highp float;uniform vec2 r;uniform float t;uniform vec3 cp;uniform vec2 rot;uniform float vr;uniform float eye;uniform vec2 lensL;uniform vec2 lensR;uniform float pxPerM;uniform float screenLens;uniform vec2 kd;uniform float fovTan;uniform float crossOn;uniform float transition;uniform float attack;uniform float fold;uniform float fade;
 #define MAX 82
 float box(vec3 p,vec3 b){vec3 q=abs(p)-b;return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.);}
 float cyl(vec3 p,float h,float rad){vec2 d=abs(vec2(length(p.xz),p.y))-vec2(rad,h);return min(max(d.x,d.y),0.)+length(max(d,0.));}
-float arch(vec3 p){p.z=mod(p.z+6.,12.)-6.;float outer=box(p-vec3(0.,3.2,0.),vec3(5.2,3.2,.65));float inner=box(p-vec3(0.,3.1,0.),vec3(3.9,2.55,1.));return max(outer,-inner);}
-float map(vec3 p){float d=p.y; d=min(d,arch(p));vec3 q=p;q.x=abs(mod(q.x+14.,28.)-14.);q.z=mod(q.z+9.,18.)-9.;d=min(d,cyl(q-vec3(9.,2.6,0.),2.6,.72));vec3 w=p;w.z=mod(w.z+24.,48.)-24.;d=min(d,box(w-vec3(0.,.7,0.),vec3(2.3,.7,5.)));return d;}
-vec3 norm(vec3 p){vec2 e=vec2(.003,0);return normalize(vec3(map(p+e.xyy)-map(p-e.xyy),map(p+e.yxy)-map(p-e.yxy),map(p+e.yyx)-map(p-e.yyx)));}
-float trace(vec3 ro,vec3 rd,out vec3 p){float d=0.;for(int i=0;i<MAX;i++){p=ro+rd*d;float h=map(p);if(h<.003||d>85.)break;d+=h*.72;}return d;}
-vec3 sky(vec3 rd){float h=max(rd.y,0.);return mix(vec3(.018,.025,.04),vec3(.055,.075,.105),h);}
-void main(){vec2 fc=gl_FragCoord.xy;vec2 uv=(2.*fc-r)/r.y;float side=0.;float lensEdge=0.;if(vr>.5){
+float ellipsoid(vec3 p,vec3 r){float k0=length(p/r),k1=length(p/(r*r));return k0*(k0-1.)/max(k1,.0001);}
+float capsule(vec3 p,vec3 a,vec3 b,float radius){vec3 pa=p-a,ba=b-a;float h=clamp(dot(pa,ba)/max(dot(ba,ba),.0001),0.,1.);return length(pa-ba*h)-radius;}
+vec3 snakePath(float u,float time,float variant){float side=variant<.5?-1.:1.;float a=u*6.2831853+sin(time*1.1+variant*2.)*.1+variant*3.14159;float radius=.84+.1*sin(u*12.566+time*.8+variant);return vec3(side*.62+cos(a)*radius,2.78+.29*sin(a*2.+time*.65+variant),-72.+sin(a)*.55+side*.12+.14*sin(a*2.+time*1.4+variant));}
+vec3 snakeHead(float time,float variant){float side=variant<.5?-1.:1.;float lunge=.24+.34*(.5+.5*sin(time*1.7+variant*3.14159));float strike=variant<.5?attack:0.;return vec3(side*.62-side*lunge,3.8+.13*sin(time*2.3+variant)+strike*.22,-72.+side*.12+.12*cos(time*2.+variant)+strike*1.8);}
+vec3 snakeNeck(float u,float time,float variant){float side=variant<.5?-1.:1.;vec3 head=snakeHead(time,variant);float sway=.15*sin(u*3.14159+time*2.+variant*3.14159);return vec3(mix(side*.62,head.x,u)-side*sway,mix(2.82,head.y-.1,u),mix(-72.+side*.12,head.z,u)+.17*sin(u*3.14159+time*1.5+variant));}
+float snakeSdf(vec3 p,float time,float variant){
+ float side=variant<.5?-1.:1.;
+ float d=10.;
+ float phase=time*1.2+variant*2.;
+ for(int i=0;i<24;i++){float u=float(i)/24.;vec3 a=snakePath(u,time,variant),b=snakePath(u+.043,time,variant);float radius=.16+.045*sin(u*6.2831853+phase);d=min(d,capsule(p,a,b,radius));}
+ for(int i=0;i<10;i++){float u=float(i)/10.;vec3 a=snakeNeck(u,time,variant),b=snakeNeck(u+.105,time,variant);d=min(d,capsule(p,a,b,.145-.025*u));}
+ vec3 head=snakeHead(time,variant);
+ float strike=variant<.5?attack:0.;
+ float facingX=-side*(1.-strike),facingZ=strike;
+ vec3 delta=p-head;
+ vec3 h=vec3(delta.x*facingX+delta.z*facingZ,delta.y,-delta.x*facingZ+delta.z*facingX);
+ float jaw=.1+.22*strike+.045*(.5+.5*sin(time*3.2+variant));
+ d=min(d,ellipsoid(h,vec3(.36,.25,.31)));
+ d=min(d,ellipsoid(h-vec3(.22,-.035,0.),vec3(.26,.16,.22)));
+ d=min(d,capsule(h,vec3(.08,-.13-jaw,0.),vec3(.37,-.12-jaw,0.),.075));
+ float mouth=ellipsoid(h-vec3(.25,-.11-jaw*.22,0.),vec3(.2,.075+.055*strike,.145+.04*strike));
+ d=max(d,-mouth);
+ for(int fang=0;fang<2;fang++){float z=fang==0?-.14:.14;d=min(d,capsule(h,vec3(.3,-.045,z),vec3(.33,-.17-jaw*.35,z),.038));}
+ float flick=.17+.22*strike;
+ flick*=.5+.5*sin(time*7.+variant*3.);
+ d=min(d,capsule(h,vec3(.34,-.12,0.),vec3(.34+flick,-.13,0.),.017));
+ d=min(d,capsule(h,vec3(.34+flick,-.13,0.),vec3(.46+flick,-.18,.035),.011));
+ d=min(d,capsule(h,vec3(.34+flick,-.13,0.),vec3(.46+flick,-.18,-.035),.011));
+ for(int eye=0;eye<2;eye++){float s=eye==0?-1.:1.;vec3 eyePos=vec3(-.015,.1,s*.235);d=min(d,ellipsoid(h-eyePos,vec3(.09,.09,.055)));}
+ return d;
+}
+vec3 bendSpace(vec3 p,float time){vec3 gaze=normalize(vec3(sin(rot.x)*cos(rot.y),sin(rot.y),cos(rot.x)*cos(rot.y)));vec3 sight=normalize(p-cp);float focus=pow(max(dot(gaze,sight),0.),5.);float depth=smoothstep(4.,38.,length(p-cp));float amplitude=(.12+.62*fold)*focus*depth;p.x+=sin(p.z*.12+time*.32+gaze.x*2.)*amplitude;p.y+=sin(p.x*.16-p.z*.09+time*.28)*amplitude*.7;p.z+=sin(p.x*.1+p.y*.11+time*.24)*amplitude*.45;return p;}
+float arch(vec3 p){float worldZ=p.z;p.z=mod(p.z+6.,12.)-6.;float outer=box(p-vec3(0.,3.2,0.),vec3(5.2,3.2,.65));float inner=box(p-vec3(0.,3.1,0.),vec3(3.9,2.55,1.));float bridge=max(outer,-inner);float hole=box(vec3(p.x,p.y,worldZ+72.),vec3(.72,.52,.72));return max(bridge,-hole);}
+float map(vec3 p,float time){p=bendSpace(p,time);float road=.16*sin(p.z*.16+time*.52+sin(p.x*.48)*1.4)*exp(-abs(p.x)*.18);float d=p.y-road;d=min(d,arch(p));vec3 q=p;q.x=abs(mod(q.x+14.,28.)-14.);q.z=mod(q.z+9.,18.)-9.;d=min(d,cyl(q-vec3(9.,2.6,0.),2.6,.72));vec3 w=p;w.z=mod(w.z+24.,48.)-24.;d=min(d,box(w-vec3(0.,.7,0.),vec3(2.3,.7,5.)));if(length(p-vec3(0.,3.3,-72.))<4.2)d=min(d,min(snakeSdf(p,time,0.),snakeSdf(p,time,1.)));return d;}
+vec3 norm(vec3 p,float time){vec2 e=vec2(.003,0);return normalize(vec3(map(p+e.xyy,time)-map(p-e.xyy,time),map(p+e.yxy,time)-map(p-e.yxy,time),map(p+e.yyx,time)-map(p-e.yyx,time)));}
+float trace(vec3 ro,vec3 rd,out vec3 p,float time){float d=0.;for(int i=0;i<MAX;i++){p=ro+rd*d;float h=map(p,time);if(h<.003||d>85.)break;d+=h*.72;}return d;}
+vec3 sky(vec3 rd){float h=max(rd.y,0.);return mix(vec3(.018,.012,.045),vec3(.12,.075,.19),h);}
+void main(){if(transition>.5){gl_FragColor=vec4(1.);return;}vec2 fc=gl_FragCoord.xy;vec2 uv=(2.*fc-r)/r.y;float side=0.;float lensEdge=0.;if(vr>.5){
 // Cardboard lens model, ported from Google's cardboard-vr-display (CardboardDistorter / DeviceInfo).
 // Each eye's projection centre sits exactly on its lens axis, so content at infinity lands on both
 // lens centres and the eyes look straight ahead to fuse it (no divergence).
@@ -49,10 +83,101 @@ float cy=cos(rot.x),sy=sin(rot.x),cx=cos(rot.y),sx=sin(rot.y);vec3 fw=normalize(
 float es=(side*2.-1.);vec3 ro=cp+rt*eye*es;
 // Parallel eye cameras (no toe-in, no convergence shear); off-axis framing comes from the lens centres.
 vec3 rd=normalize(fw+uv.x*rt+uv.y*up);
-vec3 p;float dist=trace(ro,rd,p);vec3 col=sky(rd);if(dist<85.){vec3 n=norm(p);float diff=.18+.28*max(dot(n,normalize(vec3(-.3,.8,-.2))),0.);float stripes=.5+.5*sin(p.z*.48);vec3 warm=vec3(1.0,.48,.16);float lamps=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/3.),8.);float edge=exp(-abs(p.y-.08)*18.)*exp(-abs(abs(p.x)-4.5)*2.);col=vec3(.09,.075,.065)*diff;col+=warm*(lamps*.48+edge*.35);if(p.y<.02){vec3 rr=reflect(rd,n);col=mix(col,sky(rr)+warm*.16,.46);}float fog=1.-exp(-dist*.027);col=mix(col,vec3(.018,.024,.032),fog);}
-float glow=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/5.),10.)*.08;col+=vec3(1.,.35,.08)*glow;col=col/(col+.72);col=pow(col,vec3(.78));float vig=1.-(vr>.5?.08:.18)*dot(uv,uv);col*=vig;if(vr>.5&&crossOn>.5){vec2 gd=abs(fract(uv*4.+.5)-.5)/4.;float a=step(min(gd.x,gd.y),.0035)+step(min(abs(uv.x),abs(uv.y)),.008);col=mix(col,vec3(0.,1.,.6),clamp(a,0.,1.));}float grain=fract(sin(dot(fc+floor(t*24.),vec2(12.9898,78.233)))*43758.5453);col+=(grain-.5)*.018;if(vr>.5){col.r+=lensEdge*.025;col.b+=lensEdge*.018;col*=1.-lensEdge*.13;}gl_FragColor=vec4(col,1);}`;
+vec3 p;float dist=trace(ro,rd,p,t);vec3 col=sky(rd);
+if(dist<85.){
+ vec3 n=norm(p,t);
+ float diff=.2+.34*max(dot(n,normalize(vec3(-.3,.8,-.2))),0.);
+ vec3 warm=vec3(.72,.68,.74);
+ float aurora=.5+.5*sin(p.z*.15+t*.17+sin(p.x*.8+p.y*.35)*1.6);
+ vec3 spectral=mix(vec3(.31,.09,.52),vec3(.08,.26,.62),aurora);
+ spectral=mix(spectral,vec3(.58,.13,.39),.5+.5*sin(p.z*.095-p.x*.7+t*.12));
+ float lamps=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/3.),8.);
+ float edge=exp(-abs(p.y-.08)*18.)*exp(-abs(abs(p.x)-4.5)*2.);
+ col=vec3(.055,.045,.09)*diff+warm*(lamps*.27+edge*.2)+spectral*.105;
+ float road=.16*sin(p.z*.16+t*.52+sin(p.x*.48)*1.4)*exp(-abs(p.x)*.18);
+ if(p.y<road+.03){
+  vec3 rr=reflect(rd,n);
+  float caustic=pow(max(0.,sin(p.x*1.8+sin(p.z*1.4+t*.7)*.8+t*1.2)*sin(p.z*2.1-p.x*.5+t*.8)),8.);
+  col=mix(col,sky(rr)+warm*.18+spectral*.13,.54);
+  col+=mix(vec3(.16,.15,.3),vec3(.19,.38,.72),aurora)*caustic;
+ }else if(p.y>5.5){
+  float caustic=pow(max(0.,sin(p.x*1.8+sin(p.z*1.4+t*.7)*.8+t*1.2)*sin(p.z*2.1-p.x*.5+t*.8)),8.);
+  float sheen=pow(max(dot(reflect(rd,n),normalize(vec3(.15,.8,-.5))),0.),18.);
+  col=mix(col,sky(reflect(rd,n))+warm*.2+spectral*.18,.22);
+  col+=mix(vec3(.35,.11,.58),vec3(.08,.4,.72),aurora)*caustic+vec3(.48,.39,.62)*sheen;
+ }
+ if(length(p-vec3(0.,3.3,-72.))<4.2){
+  float snakeA=snakeSdf(p,t,0.),snakeB=snakeSdf(p,t,1.);
+  float snake=min(snakeA,snakeB);
+  if(snake<.035){
+   float selected=snakeA<snakeB?0.:1.;
+   float bodySide=selected<.5?-1.:1.;
+   vec3 head=snakeHead(t,selected),delta=p-head;
+   float strike=selected<.5?attack:0.;
+   vec3 h=vec3(delta.x*(-bodySide*(1.-strike))+delta.z*strike,delta.y,-delta.x*strike+delta.z*(-bodySide*(1.-strike)));
+   float scales=.5+.5*sin(p.x*38.+mod(floor(p.y*34.),2.)*1.57+sin(p.z*21.)*.45)*sin(p.y*41.+p.z*6.);
+   vec3 scaleColor=selected<.5?vec3(.045,.17,.105):vec3(.19,.035,.09);
+   vec3 bellyColor=selected<.5?vec3(.38,.3,.18):vec3(.38,.2,.17);
+   col=mix(scaleColor,scaleColor*1.9,smoothstep(.28,.82,scales));
+   float bellyPlates=.5+.5*sin(p.y*72.+sin(p.x*9.)*.5);
+   if(n.y<-.32)col=mix(bellyColor,bellyColor*1.28,bellyPlates*.55);
+   vec3 litDir=normalize(vec3(-.3,.8,.4));
+   float spec=pow(max(dot(reflect(-litDir,n),-rd),0.),38.);
+   col=col*(.3+.7*max(dot(n,litDir),0.))+vec3(.8,.82,1.)*spec*.38;
+   vec3 eyeA=vec3(-.015,.1,.235),eyeB=vec3(-.015,.1,-.235);
+   float eyeDist=min(length(h-eyeA),length(h-eyeB));
+   if(eyeDist<.091){
+     col=vec3(1.,.055,.018)*(.65+.35*step(.5,sin(t*4.+selected)));
+     if(abs(h.x)<.028&&h.y>.035&&h.y<.17)col=vec3(.006,.002,.004);
+     float glint=min(length(h-(eyeA+vec3(-.018,.03,.012))),length(h-(eyeB+vec3(-.018,.03,-.012))));
+     if(glint<.018)col=vec3(1.,.65,.4);
+   }
+   float jaw=.1+.22*strike+.045*(.5+.5*sin(t*3.2+selected));
+   vec3 fangA=vec3(.3,-.045,-.14),fangB=vec3(.33,-.17-jaw*.35,-.14);
+   vec3 fangC=vec3(.3,-.045,.14),fangD=vec3(.33,-.17-jaw*.35,.14);
+   if(min(capsule(h,fangA,fangB,.038),capsule(h,fangC,fangD,.038))<.036)col=vec3(.97,.83,.58);
+   vec3 mouthDelta=h-vec3(.25,-.11-jaw*.22,0.);
+   if(abs(mouthDelta.x)<.2&&abs(mouthDelta.y)<.13&&abs(mouthDelta.z)<.18&&h.y<-.035&&h.y>-.25-jaw)col=vec3(.012,.003,.009);
+   float flick=(.17+.22*strike)*(.5+.5*sin(t*7.+selected*3.));
+   if(length(h-vec3(.34+flick,-.13,0.))<.035)col=vec3(.86,.035,.17);
+  }
+ }
+ float fog=1.-exp(-dist*.027);
+ col=mix(col,mix(vec3(.035,.014,.095),vec3(.025,.045,.14),aurora),fog);
+}
+float glow=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/5.),10.)*.06;
+col+=vec3(.56,.29,.78)*glow;
+float radialRate=dot(rd.xz,rd.xz);
+float along=radialRate>.0001?-(ro.x*rd.x+(ro.z+72.)*rd.z)/radialRate:0.;
+vec3 beamPoint=ro+rd*max(along,0.);
+float beamRadius=mix(4.8,1.75,clamp(beamPoint.y/6.4,0.,1.));
+float beamDistance=length(vec2(beamPoint.x,beamPoint.z+72.));
+float beam=exp(-beamDistance/max(beamRadius,.01)*2.1)*exp(-max(along,0.)*.0035);
+if(along>0.&&beamPoint.y>.08&&beamPoint.y<6.45){
+ float dust=pow(max(0.,sin(beamPoint.x*17.+beamPoint.y*13.+t*1.5)*sin(beamPoint.z*9.-t)),12.);
+ col+=vec3(1.)*beam*.68+vec3(.35,.12,.75)*beam*.16+vec3(.12,.28,.8)*dust*beam*.55;
+}
+float topAlong=(6.42-ro.y)/max(rd.y,.0001);
+vec3 topPoint=ro+rd*topAlong;
+float aperture=exp(-length(topPoint-vec3(0.,6.42,-72.))*3.8)*step(0.,rd.y)*step(0.,topAlong)*step(topAlong,85.);
+col+=vec3(1.)*aperture*.9;
+float gazeDot=clamp(dot(rd,fw),-1.,1.);
+float portalRadius=acos(gazeDot)*8.;
+float portalPulse=.5+.5*sin(t*2.1+fold*3.);
+float portalRing=exp(-abs(portalRadius-(.92+.09*sin(t*1.7)))*19.)*fold;
+float portalInner=(1.-smoothstep(.72,1.02,portalRadius))*fold;
+col+=vec3(.52,.09,.95)*portalRing*(.55+.45*portalPulse)+vec3(.08,.25,.72)*portalRing*.5;
+col=mix(col,col*vec3(.34,.18,.72)+vec3(.06,.02,.17),portalInner*.46);
+col=col/(col+.72);col=pow(col,vec3(.78));
+float vig=1.-(vr>.5?.08:.18)*dot(uv,uv);col*=vig;
+col=mix(col,vec3(.001,.001,.004),fade);
+if(vr>.5&&crossOn>.5){vec2 gd=abs(fract(uv*4.+.5)-.5)/4.;float a=step(min(gd.x,gd.y),.0035)+step(min(abs(uv.x),abs(uv.y)),.008);col=mix(col,vec3(0.,1.,.6),clamp(a,0.,1.));}
+float grain=fract(sin(dot(fc+floor(t*24.),vec2(12.9898,78.233)))*43758.5453);
+col+=(grain-.5)*.018;
+if(vr>.5){col.r+=lensEdge*.025;col.b+=lensEdge*.018;col*=1.-lensEdge*.13;}
+gl_FragColor=vec4(col,1);}`;
 function shader(type,src){let s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}let pr=gl.createProgram();gl.attachShader(pr,shader(gl.VERTEX_SHADER,V));gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,F));gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);let b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);let a=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
-const U=n=>gl.getUniformLocation(pr,n),ur=U('r'),ut=U('t'),uc=U('cp'),urot=U('rot'),uvr=U('vr'),ue=U('eye'),uLensL=U('lensL'),uLensR=U('lensR'),uPxPerM=U('pxPerM'),uScreenLens=U('screenLens'),uKd=U('kd'),uFovTan=U('fovTan'),uCross=U('crossOn');let pos={x:0,y:1.68,z:7},yaw=Math.PI,pitch=0,keys={},vr=false,last=performance.now();
+const U=n=>gl.getUniformLocation(pr,n),ur=U('r'),ut=U('t'),uc=U('cp'),urot=U('rot'),uvr=U('vr'),ue=U('eye'),uLensL=U('lensL'),uLensR=U('lensR'),uPxPerM=U('pxPerM'),uScreenLens=U('screenLens'),uKd=U('kd'),uFovTan=U('fovTan'),uCross=U('crossOn'),uTransition=U('transition'),uAttack=U('attack'),uFold=U('fold'),uFade=U('fade');let pos={x:0,y:1.68,z:7},yaw=Math.PI,pitch=0,keys={},vr=false,last=performance.now();
 function resize(){let d=Math.min(devicePixelRatio,1.5);canvas.width=Math.floor(innerWidth*d);canvas.height=Math.floor(innerHeight*d);gl.viewport(0,0,canvas.width,canvas.height)}addEventListener('resize',resize);resize();
 // Cardboard viewer optics: Google Cardboard I/O 2015 ("V2") values from cardboard-vr-display.
 const VIEWER={interLensMm:64,screenLensMm:39,baselineMm:35,k:[0.34,0.55],fovDeg:60},BEVEL_MM=4,CARD_MM=85.6;
@@ -74,16 +199,40 @@ function vrGeometry(){
 }
 const params=new URLSearchParams(location.search), role=params.get('mode')||'controller';
 const status=document.getElementById('status'), motionBtn=document.getElementById('motion'), vrBtn=document.getElementById('vr');
-if(role==='headset'){vr=true;document.body.classList.add('vr','headset');document.getElementById('title').textContent='CARDBOARD HEADSET';document.getElementById('hint').textContent='Mirroring laptop simulation';vrBtn.style.display='none';motionBtn.style.display='none';document.querySelector('.touch').style.display='none';}
-if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').textContent='MASTER SIMULATION';document.getElementById('hint').innerHTML='👍👍 = forward · keyboard also works<br>Headset tuning: <b>G</b> grid · <b>[ ]</b> spacing (Shift = 2 mm) · <b>- =</b> distortion';vrBtn.style.display='none';}
+if(role==='headset'){vr=true;document.body.classList.add('vr','headset');document.getElementById('title').textContent='CARDBOARD HEADSET';document.getElementById('hint').textContent='Turn your head to reveal portals · W/S walk';vrBtn.style.display='none';motionBtn.style.display='none';document.querySelector('.touch').style.display='none';}
+if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').textContent='MASTER SIMULATION';document.getElementById('hint').innerHTML='👍👍 / W = forward · S = reverse after looking back<br>Mouse look bends space · headset follows phone gaze';vrBtn.style.display='none';}
 function normalizedKey(e){const k=e.key.toLowerCase();return ({arrowup:'w',arrowdown:'s',arrowleft:'a',arrowright:'d'})[k]||k}
 addEventListener('keydown',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=true}});
 addEventListener('keyup',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=false}});
 addEventListener('blur',()=>{for(const k of ['w','a','s','d','shift'])keys[k]=false});
+document.querySelectorAll('.touch button').forEach(button=>{
+ const k=button.dataset.k;
+ button.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true;button.setPointerCapture(e.pointerId)});
+ for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>{keys[k]=false});
+});
 if(role!=='headset'){canvas.addEventListener('click',()=>canvas.requestPointerLock?.());addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){yaw-=e.movementX*.0022;pitch=Math.max(-1.25,Math.min(1.25,pitch-e.movementY*.0022))}})}
 vrBtn.onclick=()=>{vr=!vr;document.body.classList.toggle('vr',vr);vrBtn.textContent=vr?'NORMAL VIEW':'CARDBOARD VIEW'};
-let synced=false,lastSeq=-1;
-let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,serverTime:0};
+let synced=false,lastSeq=-1,walkSeconds=0,dreamTransition=false,routeHeading=yaw,routeFolded=false,foldLevel=0,swallowStarted=-1,attackLevel=0,fadeLevel=0,headTrackingEnabled=false,headsetConn=null,publishHeadLook=()=>{},headOrientationBase=null,lastHeadSend=0;
+let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,walkSeconds:0,transition:false,fold:0,attack:0,fade:0,serverTime:0};
+function angleDelta(a,b){return ((a-b+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI}
+function clamp01(x){return Math.max(0,Math.min(1,x))}
+function smooth01(x){x=clamp01(x);return x*x*(3.-2.*x)}
+function multiplyQuaternion(a,b){return [a[0]*b[0]-a[1]*b[1]-a[2]*b[2]-a[3]*b[3],a[0]*b[1]+a[1]*b[0]+a[2]*b[3]-a[3]*b[2],a[0]*b[2]-a[1]*b[3]+a[2]*b[0]+a[3]*b[1],a[0]*b[3]+a[1]*b[2]-a[2]*b[1]+a[3]*b[0]]}
+function axisQuaternion(x,y,z,a){const s=Math.sin(a*.5);return [Math.cos(a*.5),x*s,y*s,z*s]}
+function rotateVector(q,v){const p=[0,v[0],v[1],v[2]],inv=[q[0],-q[1],-q[2],-q[3]],r=multiplyQuaternion(multiplyQuaternion(q,p),inv);return r.slice(1)}
+function onDeviceOrientation(e){
+ if(!headTrackingEnabled||e.alpha===null||e.beta===null||e.gamma===null)return;
+ const rad=Math.PI/180,alpha=e.alpha*rad,beta=e.beta*rad,gamma=e.gamma*rad,screenAngle=(screen.orientation?.angle||window.orientation||0)*rad;
+ let q=multiplyQuaternion(axisQuaternion(0,0,1,alpha),axisQuaternion(1,0,0,beta));
+ q=multiplyQuaternion(q,axisQuaternion(0,1,0,gamma));
+ q=multiplyQuaternion(q,axisQuaternion(0,0,1,-screenAngle));
+ q=multiplyQuaternion(q,axisQuaternion(1,0,0,-Math.PI/2));
+ const dir=rotateVector(q,[0,0,-1]),rawYaw=Math.atan2(dir[0],dir[2]),rawPitch=Math.asin(Math.max(-1,Math.min(1,dir[1])));
+ if(!headOrientationBase)headOrientationBase={yaw:rawYaw,pitch:rawPitch,worldYaw:yaw,worldPitch:pitch};
+ yaw=headOrientationBase.worldYaw+angleDelta(rawYaw,headOrientationBase.yaw);
+ pitch=Math.max(-1.25,Math.min(1.25,headOrientationBase.worldPitch+rawPitch-headOrientationBase.pitch));
+ const now=performance.now();if(now-lastHeadSend>35){lastHeadSend=now;publishHeadLook()}
+}
 // Laptop <-> phone sync over a PeerJS (WebRTC) data channel. The laptop registers a short room
 // code with the public PeerJS broker; the phone gets that code from the QR link and connects directly.
 const ROOM_PREFIX='liminal-vr-';
@@ -189,7 +338,7 @@ if(role==='headset'){
    // Some networks silently block WebRTC; don't wait forever for a link that never opens.
    openTimer=setTimeout(()=>{if(c===conn&&!c.open){setLink('Still connecting… if this persists, try another network (e.g. mobile data).',false);try{c.close()}catch{};schedule(500)}},12000);
    c.on('open',()=>{if(c!==conn)return;clearTimeout(openTimer);lastSeq=-1;lastData=performance.now();setLink('Connected to laptop',true)});
-   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
+   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.walkSeconds=Number.isFinite(x.walkSeconds)?x.walkSeconds:0;target.transition=!!x.transition;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
    c.on('close',()=>{if(c!==conn)return;synced=false;setLink('Connection lost · reconnecting…',false);schedule()});
   }
   // The laptop streams state ~30x/s even when standing still, so silence means the link is dead.
@@ -229,13 +378,18 @@ async function startHands(){if(role!=='controller')return;
 }
 startHands();
 let walkVelocity=0,lastPost=0,sendSeq=0;
-function publish(now,moving,source,vx=0,vz=0){if(role!=='controller'||!conns.size||now-lastPost<32)return;lastPost=now;const msg={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,moving,source,seq:++sendSeq};for(const c of conns)if(c.open)try{c.send(msg)}catch{}}
+function publish(now,moving,source,vx=0,vz=0){if(role!=='controller'||!conns.size||now-lastPost<32)return;lastPost=now;const msg={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,walkSeconds,transition:dreamTransition,moving,source,seq:++sendSeq};for(const c of conns)if(c.open)try{c.send(msg)}catch{}}
 if(role==='controller'&&!conns.size)status.textContent='MASTER · creating room…';
 if(role==='solo')status.textContent='Solo mode';
 function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
  if(role!=='headset'){
   const forward=!!keys.w||thumbsForward,back=!!keys.s,left=!!keys.a,right=!!keys.d,fast=!!keys.shift;
-  let target=forward?(fast?6.2:3.2):0;walkVelocity+=(target-walkVelocity)*Math.min(1,dt*5);if(back)walkVelocity=-3;
+  let target=forward&&walkSeconds<10?(fast?10:8.1):0;walkVelocity+=(target-walkVelocity)*Math.min(1,dt*5);if(back)walkVelocity=-8.1;
+  if(walkVelocity>0)walkSeconds=Math.min(10,walkSeconds+walkVelocity*dt/8.1);
+  else if(walkVelocity<0)walkSeconds=Math.max(0,walkSeconds+walkVelocity*dt/8.1);
+  if(forward&&walkSeconds>=10)walkVelocity=0;
+  if(back&&walkSeconds<=0)walkVelocity=0;
+  if(walkSeconds>=10&&pitch>=.78)dreamTransition=true;
   let fx=Math.sin(yaw),fz=Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);pos.x+=fx*walkVelocity*dt;pos.z+=fz*walkVelocity*dt;let side=3*dt;if(left){pos.x-=rx*side;pos.z-=rz*side}if(right){pos.x+=rx*side;pos.z+=rz*side}
   publish(now,Math.abs(walkVelocity)>.08,thumbsForward?'thumbs':'keyboard',fx*walkVelocity,fz*walkVelocity);
  } else if(synced){
@@ -244,6 +398,9 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   const px=target.x+target.vx*age,pz=target.z+target.vz*age;
   const k=1-Math.exp(-dt*18);pos.x+=(px-pos.x)*k;pos.y+=(target.y-pos.y)*k;pos.z+=(pz-pos.z)*k;
   let dy=((target.yaw-yaw+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;yaw+=dy*k;pitch+=(target.pitch-pitch)*k;
+  walkSeconds=target.walkSeconds;
+  if(target.transition||(walkSeconds>=10&&pitch>=.78))dreamTransition=true;
  }
- gl.uniform2f(ur,canvas.width,canvas.height);gl.uniform1f(ut,now/1000);gl.uniform3f(uc,pos.x,pos.y,pos.z);gl.uniform2f(urot,yaw,pitch);gl.uniform1f(uvr,vr?1:0);const g=vrGeometry();gl.uniform1f(ue,g.eyeHalf);gl.uniform2f(uLensL,g.lx,g.ly);gl.uniform2f(uLensR,g.rx,g.ly);gl.uniform1f(uPxPerM,g.pxPerM);gl.uniform1f(uScreenLens,VIEWER.screenLensMm/1000);gl.uniform2f(uKd,VIEWER.k[0]*calib.kScale,VIEWER.k[1]*calib.kScale);gl.uniform1f(uFovTan,Math.tan(VIEWER.fovDeg*Math.PI/180));gl.uniform1f(uCross,calib.cross?1:0);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(loop)}requestAnimationFrame(loop);
+ if(dreamTransition)document.body.classList.add('transitioning');
+ gl.uniform2f(ur,canvas.width,canvas.height);gl.uniform1f(ut,now/1000);gl.uniform3f(uc,pos.x,pos.y,pos.z);gl.uniform2f(urot,yaw,pitch);gl.uniform1f(uvr,vr?1:0);const g=vrGeometry();gl.uniform1f(ue,g.eyeHalf);gl.uniform2f(uLensL,g.lx,g.ly);gl.uniform2f(uLensR,g.rx,g.ly);gl.uniform1f(uPxPerM,g.pxPerM);gl.uniform1f(uScreenLens,VIEWER.screenLensMm/1000);gl.uniform2f(uKd,VIEWER.k[0]*calib.kScale,VIEWER.k[1]*calib.kScale);gl.uniform1f(uFovTan,Math.tan(VIEWER.fovDeg*Math.PI/180));gl.uniform1f(uCross,calib.cross?1:0);gl.uniform1f(uTransition,dreamTransition?1:0);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(loop)}requestAnimationFrame(loop);
 </script></body></html>

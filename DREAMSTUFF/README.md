@@ -1,10 +1,10 @@
 # Liminal VR synchronized v8
 
-A laptop drives a walk through a raymarched liminal corridor; a phone in a Cardboard headset mirrors it in stereo.
+A laptop drives a walk through a raymarched underwater bridge with reflective ceiling caustics, pink-violet-blue ambient effects, and an enlarged white light shaft from a real ceiling opening. Two animated, realistically shaped snakes coil, lunge, and spar inside the beam. Forward travel reaches the opening in about 10 seconds; reverse controls retrace the walk. Looking up after reaching it transitions to a full white screen. A phone in a Cardboard headset mirrors the scene in stereo.
 
 ## Flow
 
-1. Open the site on a laptop (Chrome recommended). It becomes the **master** and asks for webcam access (both thumbs up = walk forward; WASD/arrows + mouse also work).
+1. Open the site on a laptop (Chrome recommended). It becomes the **master** and asks for webcam access (both thumbs up = walk forward; W/Up moves forward, S/Down reverses, and mouse look aims).
 2. A **QR code** appears top-right. Scan it with a phone.
 3. On the phone, tap **Enter VR** (goes fullscreen, landscape, keeps the screen awake) and put it in the headset.
 
