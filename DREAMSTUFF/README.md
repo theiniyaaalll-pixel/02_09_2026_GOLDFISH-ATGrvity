@@ -1,6 +1,6 @@
 # Liminal VR synchronized v8
 
-A laptop drives a walk through a raymarched underwater bridge with reflective ceiling caustics, pink-violet-blue ambient effects, and an enlarged white light shaft from a real ceiling opening. Two animated, realistically shaped snakes coil, lunge, and spar inside the beam. Forward travel reaches the opening in about 10 seconds; reverse controls retrace the walk. Looking up after reaching it transitions to a full white screen. A phone in a Cardboard headset mirrors the scene in stereo.
+A laptop controls a freely explorable underwater bridge with reflective water and a distant white light sphere. Reaching the sphere, or spending 45 seconds in the first visual, starts a white fade into a warm rural landscape with grass, shallow ponds, trees and translucent cellular materials. The phone mirrors the scene in calibrated Cardboard stereo with head tracking.
 
 ## Flow
 
@@ -34,10 +34,16 @@ Repo **Settings → Pages → Source: Deploy from a branch → `main` / `(root)`
 
 The QR code uses the exact landing-page URL open on the laptop, then adds the headset mode and room code. Keep the controller open at the deployed HTTPS address so phones can open the QR destination and connect.
 
-All paths are relative, so no build step is needed.
+All paths are relative. The generated `visual2.bundle.js` must be published beside `index.html`; it includes the landscape renderer, model and textures. Run `npm run build` after editing `visual2.js`, its dependencies or its assets. `npm start` rebuilds it automatically.
 
 ## Local development
 
 `npm start`, then open `http://localhost:8080/`. Use the link under the QR code in a second tab to test the headset view. Phones can't reach `localhost`, and webcams need HTTPS off-localhost, so test on real phones against the deployed site.
 
 URL modes: `?mode=controller` (default), `?mode=headset&room=<code>`, `?mode=solo`.
+
+## Automatic visual transition
+
+Visual 2 preloads and prepares its shaders while visual 1 is running. The same page fades to white and then reveals the landscape automatically; no second link or page navigation is required. Both the 45-second timeout and reaching the light use this sequence.
+
+The packaged landscape also runs when `index.html?mode=solo` is opened directly as a file. Laptop/phone testing should use the deployed HTTPS site as before. The `?mode=solo&scene=2` link is only an optional direct preview, not part of the normal sequence.

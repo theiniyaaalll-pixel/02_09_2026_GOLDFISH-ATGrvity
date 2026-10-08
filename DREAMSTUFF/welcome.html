@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#020305">
+<title>Welcome to the Delusion</title>
+<style>
+*{box-sizing:border-box}
+html{min-height:100%;background:#020305}
+body{margin:0;min-height:100svh;color:#fff5e9;font-family:Arial,Helvetica,sans-serif;isolation:isolate;background:#020305}
+.dream{position:fixed;inset:0;width:100%;height:100%;z-index:-3;pointer-events:none}
+body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background:radial-gradient(ellipse at center,#06152a30 0%,#04152a7a 75%),linear-gradient(0deg,#031a4080,transparent 60%)}
+body::after{content:"";position:fixed;inset:0;z-index:2;opacity:.12;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23fff' filter='url(%23n)' opacity='.65' d='M0 0h180v180H0z'/%3E%3C/svg%3E")}
+main{min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:64px 24px;max-width:850px;margin:auto}
+h1{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:clamp(48px,7.5vw,88px);line-height:1.05;letter-spacing:-.045em;margin:0;text-shadow:0 3px 30px #031a4050}
+.subtitle{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:clamp(19px,2.5vw,26px);color:#f2c3ab;margin:20px 0 30px}
+.rule{height:1px;width:64px;background:#f2c3ab88;margin-bottom:28px}
+.instructions{max-width:470px;font-size:14px;line-height:1.85;color:#f1f3f1e6;margin:0}
+.instructions strong{display:block;font-size:16px;color:#ddff8a;letter-spacing:.025em}
+.gesture-guide{width:100%;max-width:720px;margin-top:22px;padding:20px;border:1px solid #ddff8a66;border-radius:22px;background:#080b18e8;box-shadow:0 12px 50px #0005;backdrop-filter:blur(10px)}
+.gesture-guide h2{margin:0;font-size:clamp(17px,2.5vw,22px);font-weight:900;letter-spacing:.08em;color:#ddff8a}
+.gesture-note{margin:8px 0 16px;font-size:12px;line-height:1.6;color:#e5e4ed}
+.hand-check{margin:8px 0 0;font-size:13px;line-height:1.5;font-weight:800;color:#fff5e9}
+.gestures{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.gestures li{padding:12px 4px;border:1px solid #ffffff20;border-radius:14px;background:#ffffff06}
+.gestures svg{display:block;width:66px;height:66px;margin:0 auto 8px;fill:none;stroke:#fff5e9;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.gestures strong{display:block;font-size:15px;font-weight:800;color:#fff5e9}
+.gestures span{display:block;margin-top:5px;font-size:12px;color:#ddd8e6}
+.sketch-defs{position:absolute;width:0;height:0;overflow:hidden}
+@media(max-width:520px){.gesture-guide{padding:16px 12px}.gestures{grid-template-columns:repeat(2,minmax(0,1fr))}.gestures li:last-child{grid-column:1/-1}.gestures svg{width:54px;height:54px}.gesture-note{max-width:260px;margin:8px auto 14px}}
+.start{display:inline-flex;align-items:center;justify-content:center;gap:28px;min-height:56px;margin-top:30px;padding:16px 32px;border:1px solid #e3ff8ca6;border-radius:999px;color:#102c48;background:#ddff8a;text-decoration:none;font-size:12px;letter-spacing:.18em;text-transform:uppercase;box-shadow:0 0 35px #c8ff4520;transition:transform .25s,background .25s,box-shadow .25s}
+.start:hover{transform:translateY(-3px);background:#fff3e4;box-shadow:0 0 45px #efb59b50}
+.start:focus-visible{outline:3px solid #fff;outline-offset:6px}
+.start span{font-size:20px;letter-spacing:0}
+.reflection{max-width:445px;margin:34px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:1.8;color:#f1e2d4cf}
+@media(max-width:600px){main{padding:40px 24px}h1{max-width:400px}.reflection{margin-top:28px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<canvas class="dream" id="welcome-visual" aria-hidden="true"></canvas>
+<svg class="sketch-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<symbol id="sketch-point" viewBox="0 0 72 72">
+<path d="M24 64 21 53 12 42Q9 38 12 35T19 36L25 42 25 14Q25 9 29 9T33 14L33 32Q35 27 39 29L41 34Q44 30 47 33L49 38Q53 35 56 39L57 49Q57 56 51 64Z"/>
+<path d="M33 32 33 43M41 34 41 44M49 38 49 46M27 57Q36 54 45 57" stroke-width="1.5" opacity=".65"/>
+</symbol>
+<symbol id="sketch-palm" viewBox="0 0 72 72">
+<path d="M23 64 17 53 8 37Q6 32 10 31T16 34L22 43 19 19Q18 14 22 13T27 18L30 35 29 11Q29 6 33 6T37 11L38 34 40 14Q41 9 45 10T48 16L46 37 51 23Q53 18 57 20T59 27L54 49Q53 57 48 64Z"/>
+<path d="M27 47Q34 42 42 45M28 55 43 54" stroke-width="1.5" opacity=".65"/>
+</symbol>
+</defs>
+</svg>
+<main>
+<h1>Welcome to<br>the Delusion</h1>
+<p class="subtitle">This Seemed Better in My Head</p>
+<div class="rule" aria-hidden="true"></div>
+<p class="instructions"><strong>Start &rarr; Scan QR &rarr; Enter VR</strong>Laptop reads your hands. Phone brings the dream.</p>
+<section class="gesture-guide" aria-labelledby="gesture-title">
+<h2 id="gesture-title">YOUR HANDS. THE REMOTE.</h2>
+<p class="hand-check">Make sure the laptop detects your hand.</p>
+<p class="gesture-note">One hand in the laptop camera. Hold to move. Lower to stop.</p>
+<ul class="gestures">
+<li><svg viewBox="0 0 72 72" aria-hidden="true"><use href="#sketch-point"/></svg><strong>Forward</strong><span>Index up</span></li>
+<li><svg viewBox="0 0 72 72" aria-hidden="true"><use href="#sketch-palm"/></svg><strong>Backward</strong><span>Open palm</span></li>
+<li><svg viewBox="0 0 72 72" aria-hidden="true"><use href="#sketch-point" transform="rotate(-90 36 36)"/></svg><strong>Left</strong><span>Point left</span></li>
+<li><svg viewBox="0 0 72 72" aria-hidden="true"><use href="#sketch-point" transform="rotate(90 36 36)"/></svg><strong>Right</strong><span>Point right</span></li>
+<li><svg viewBox="0 0 72 72" aria-hidden="true"><use href="#sketch-point" transform="translate(14 23) scale(.65)"/><path d="M16 25A22 22 0 1 1 56 26M56 17 56 26 65 24" style="stroke:#ddff8a"/></svg><strong>360&deg; turn</strong><span>Draw a circle</span></li>
+</ul>
+</section>
+<a class="start" id="start" href="index.html?mode=controller">Let&rsquo;s Get Weird <span aria-hidden="true">&#8599;</span></a>
+<p class="reflection">Stay a little. Overthink it later. Or don&rsquo;t.</p>
+</main>
+<script src="./welcome-visual.js" defer></script>
+<script>
+const destination = new URL('index.html', location.href);
+destination.search = location.search;
+destination.searchParams.set('mode', 'controller');
+document.getElementById('start').href = destination.href;
+</script>
+</body>
+</html>

@@ -1,6 +1,14 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script>
+// Keep explicit simulation and headset links intact; welcome new visitors first.
+if (!new URLSearchParams(location.search).has('mode')) {
+  const welcome = new URL('welcome.html', location.href);
+  welcome.search = location.search;
+  location.replace(welcome.href);
+}
+</script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>Liminal VR Walk</title>
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Liminal VR"><meta name="theme-color" content="#020305"><link rel="manifest" href="manifest.webmanifest">
@@ -16,9 +24,11 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020305;col
 .calib{position:fixed;inset:0;z-index:12;background:#020305;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;box-sizing:border-box;text-align:center;font-size:13px}.calib[hidden]{display:none}.calib p{margin:0;max-width:520px;opacity:.8}.card{border:2px solid #0f9;border-radius:10px;box-sizing:border-box;background:#00ff9910}.calib input{width:min(520px,90vw)}.calib .row{display:flex;gap:10px}.calib button{background:#eee;color:#111;border:0;border-radius:10px;padding:10px 16px;font-weight:700}.calib button.ghost{background:transparent;color:#eee;border:1px solid #ffffff55}
 .vtoast{display:none;position:fixed;top:22%;transform:translateX(-50%);z-index:8;background:#000d;color:#0f9;border:1px solid #0f96;border-radius:8px;padding:6px 10px;font-size:12px;white-space:nowrap;pointer-events:none}.vtoast.show{display:block}
 </style>
+<script src="./visual2.bundle.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body><canvas id="c"></canvas><div class="cam" id="cam"><video id="webcam" autoplay playsinline muted></video><div class="camstat" id="camstat">Camera starting…</div></div><div class="reticle" id="reticle" aria-hidden="true"></div><div class="ui" id="ui"><b id="title">LIMINAL WALK</b><div class="hint" id="hint">WASD / arrows move · S / ↓ back · mouse look</div><div id="status" style="margin-top:5px;opacity:.72">Connecting…</div><button id="motion" style="display:none">ENABLE HEAD TRACKING</button><button id="vr">CARDBOARD VIEW</button></div><div class="touch"><button data-k="a">←</button><button data-k="w">↑</button><button data-k="s">↓</button><button data-k="d">→</button></div><div class="qr" id="qr"><div class="qrhead"><b>JOIN WITH A PHONE</b><button id="qrtoggle">Hide</button></div><div class="qrbody"><div class="qrcode" id="qrcode">Creating room…</div><div class="qrtext" id="qrtext">Scan with the phone camera, tap “Enter VR”, then place the phone in the Cardboard headset.</div><a id="qrlink" target="_blank" rel="noopener"></a></div></div><div class="enter" id="enter"><div><b>LIMINAL WALK · HEADSET</b><p id="enterstatus">Connecting to laptop…</p><div class="install" id="install" hidden><p><b>Full screen on iPhone needs a one-time step.</b> Safari doesn’t let web pages hide its bars.</p><ol><li>Tap <b>Share</b> in Safari’s toolbar</li><li>Tap <b>Add to Home Screen</b> (keep “Open as Web App” on)</li><li>Open <b>Liminal VR</b> from your Home Screen</li></ol><p class="small">The icon reconnects to this laptop next time.</p><button class="ghost" id="safaribtn">Continue in Safari anyway</button></div><button id="enterbtn">TAP TO ENTER VR</button><p class="small">Turn the phone sideways and place it in the Cardboard headset. The laptop controls the walk.</p><p class="small"><a href="#" id="roomlink">Laptop showing a different room code?</a> · <a href="#" id="caliblink">Calibrate screen size</a></p><p class="small" id="calibstate"></p></div></div><div class="calib" id="calib" hidden><b>SCREEN SIZE</b><p id="calibmsg">Turn the phone sideways. Hold a standard bank/ID card (85.6 mm wide) against the screen and drag the slider until the green box is exactly as wide as the card.</p><div class="card" id="card"></div><input type="range" id="cardw" min="250" max="1100" step="1"><div class="row"><button id="calibsave">SAVE</button><button class="ghost" id="calibreset">Reset</button><button class="ghost" id="calibcancel">Cancel</button></div></div><div class="vtoast" id="toastL"></div><div class="vtoast" id="toastR"></div><div class="banner" id="banner">Connection lost · reconnecting…</div>
+<script src="./gesture-controls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script>
 const canvas=document.getElementById('c'),gl=canvas.getContext('webgl',{antialias:false,alpha:false});
@@ -30,42 +40,48 @@ float box(vec3 p,vec3 b){vec3 q=abs(p)-b;return length(max(q,0.))+min(max(q.x,ma
 float cyl(vec3 p,float h,float rad){vec2 d=abs(vec2(length(p.xz),p.y))-vec2(rad,h);return min(max(d.x,d.y),0.)+length(max(d,0.));}
 float ellipsoid(vec3 p,vec3 r){float k0=length(p/r),k1=length(p/(r*r));return k0*(k0-1.)/max(k1,.0001);}
 float capsule(vec3 p,vec3 a,vec3 b,float radius){vec3 pa=p-a,ba=b-a;float h=clamp(dot(pa,ba)/max(dot(ba,ba),.0001),0.,1.);return length(pa-ba*h)-radius;}
-vec3 snakePath(float u,float time,float variant){float side=variant<.5?-1.:1.;float a=u*6.2831853+sin(time*1.1+variant*2.)*.1+variant*3.14159;float radius=.84+.1*sin(u*12.566+time*.8+variant);return vec3(side*.62+cos(a)*radius,2.78+.29*sin(a*2.+time*.65+variant),-72.+sin(a)*.55+side*.12+.14*sin(a*2.+time*1.4+variant));}
-vec3 snakeHead(float time,float variant){float side=variant<.5?-1.:1.;float lunge=.24+.34*(.5+.5*sin(time*1.7+variant*3.14159));float strike=variant<.5?attack:0.;return vec3(side*.62-side*lunge,3.8+.13*sin(time*2.3+variant)+strike*.22,-72.+side*.12+.12*cos(time*2.+variant)+strike*1.8);}
-vec3 snakeNeck(float u,float time,float variant){float side=variant<.5?-1.:1.;vec3 head=snakeHead(time,variant);float sway=.15*sin(u*3.14159+time*2.+variant*3.14159);return vec3(mix(side*.62,head.x,u)-side*sway,mix(2.82,head.y-.1,u),mix(-72.+side*.12,head.z,u)+.17*sin(u*3.14159+time*1.5+variant));}
-float snakeSdf(vec3 p,float time,float variant){
- float side=variant<.5?-1.:1.;
- float d=10.;
- float phase=time*1.2+variant*2.;
- for(int i=0;i<24;i++){float u=float(i)/24.;vec3 a=snakePath(u,time,variant),b=snakePath(u+.043,time,variant);float radius=.16+.045*sin(u*6.2831853+phase);d=min(d,capsule(p,a,b,radius));}
- for(int i=0;i<10;i++){float u=float(i)/10.;vec3 a=snakeNeck(u,time,variant),b=snakeNeck(u+.105,time,variant);d=min(d,capsule(p,a,b,.145-.025*u));}
- vec3 head=snakeHead(time,variant);
- float strike=variant<.5?attack:0.;
- float facingX=-side*(1.-strike),facingZ=strike;
- vec3 delta=p-head;
- vec3 h=vec3(delta.x*facingX+delta.z*facingZ,delta.y,-delta.x*facingZ+delta.z*facingX);
- float jaw=.1+.22*strike+.045*(.5+.5*sin(time*3.2+variant));
- d=min(d,ellipsoid(h,vec3(.36,.25,.31)));
- d=min(d,ellipsoid(h-vec3(.22,-.035,0.),vec3(.26,.16,.22)));
- d=min(d,capsule(h,vec3(.08,-.13-jaw,0.),vec3(.37,-.12-jaw,0.),.075));
- float mouth=ellipsoid(h-vec3(.25,-.11-jaw*.22,0.),vec3(.2,.075+.055*strike,.145+.04*strike));
- d=max(d,-mouth);
- for(int fang=0;fang<2;fang++){float z=fang==0?-.14:.14;d=min(d,capsule(h,vec3(.3,-.045,z),vec3(.33,-.17-jaw*.35,z),.038));}
- float flick=.17+.22*strike;
- flick*=.5+.5*sin(time*7.+variant*3.);
- d=min(d,capsule(h,vec3(.34,-.12,0.),vec3(.34+flick,-.13,0.),.017));
- d=min(d,capsule(h,vec3(.34+flick,-.13,0.),vec3(.46+flick,-.18,.035),.011));
- d=min(d,capsule(h,vec3(.34+flick,-.13,0.),vec3(.46+flick,-.18,-.035),.011));
- for(int eye=0;eye<2;eye++){float s=eye==0?-1.:1.;vec3 eyePos=vec3(-.015,.1,s*.235);d=min(d,ellipsoid(h-eyePos,vec3(.09,.09,.055)));}
- return d;
+// Luminous sphere far beyond the opening stretch, beside the walkway.
+const vec3 orbCenter=vec3(3.15,2.1,-140.);
+const float orbRadius=1.45;
+vec4 orbLight(vec3 origin,vec3 direction,float limit,float time){
+ vec3 offset=orbCenter-origin;
+ float along=dot(offset,direction);
+ float closest=clamp(along,0.,limit);
+ float distanceToRay=length(origin+direction*closest-orbCenter);
+ float halo=exp(-max(distanceToRay-orbRadius,0.)*2.4);
+ float mist=exp(-distanceToRay*distanceToRay*.17);
+ float discriminant=orbRadius*orbRadius-dot(offset,offset)+along*along;
+ float core=0.;
+ if(discriminant>0.){
+  float entry=along-sqrt(discriminant),exit=along+sqrt(discriminant);
+  if(exit>0.&&entry<limit){
+   float thickness=max(0.,min(exit,limit)-max(entry,0.));
+   core=1.-exp(-thickness*7.);
+  }
+ }
+ float visibility=step(0.,along)*exp(-max(along,0.)*.008);
+ vec3 light=vec3(18.)*core+vec3(1.45,1.48,1.55)*halo+vec3(.18,.19,.24)*mist;
+ return vec4(light*(.98+.02*sin(time*.75))*visibility,core*visibility);
 }
 vec3 bendSpace(vec3 p,float time){vec3 gaze=normalize(vec3(sin(rot.x)*cos(rot.y),sin(rot.y),cos(rot.x)*cos(rot.y)));vec3 sight=normalize(p-cp);float focus=pow(max(dot(gaze,sight),0.),5.);float depth=smoothstep(4.,38.,length(p-cp));float amplitude=(.12+.62*fold)*focus*depth;p.x+=sin(p.z*.12+time*.32+gaze.x*2.)*amplitude;p.y+=sin(p.x*.16-p.z*.09+time*.28)*amplitude*.7;p.z+=sin(p.x*.1+p.y*.11+time*.24)*amplitude*.45;return p;}
 float arch(vec3 p){float worldZ=p.z;p.z=mod(p.z+6.,12.)-6.;float outer=box(p-vec3(0.,3.2,0.),vec3(5.2,3.2,.65));float inner=box(p-vec3(0.,3.1,0.),vec3(3.9,2.55,1.));float bridge=max(outer,-inner);float hole=box(vec3(p.x,p.y,worldZ+72.),vec3(.72,.52,.72));return max(bridge,-hole);}
-float map(vec3 p,float time){p=bendSpace(p,time);float road=.16*sin(p.z*.16+time*.52+sin(p.x*.48)*1.4)*exp(-abs(p.x)*.18);float d=p.y-road;d=min(d,arch(p));vec3 q=p;q.x=abs(mod(q.x+14.,28.)-14.);q.z=mod(q.z+9.,18.)-9.;d=min(d,cyl(q-vec3(9.,2.6,0.),2.6,.72));vec3 w=p;w.z=mod(w.z+24.,48.)-24.;d=min(d,box(w-vec3(0.,.7,0.),vec3(2.3,.7,5.)));if(length(p-vec3(0.,3.3,-72.))<4.2)d=min(d,min(snakeSdf(p,time,0.),snakeSdf(p,time,1.)));return d;}
+// Strong crossing swells and intermittent surges, confined to the water.
+float waterHeight(vec2 q,float time){
+ float modulation=sin(q.x*.043+q.y*.061-time*.22);
+ float surge=.94+.16*sin(time*.43+sin(time*.19));
+ float phase=dot(q,vec2(.23,.32))-time*1.38+modulation*.65;
+ float swell=.48*sin(phase);
+ float crossing=.24*sin(dot(q,vec2(-.43,.21))-time*1.69+.7);
+ float chop=.105*sin(dot(q,vec2(.93,.65))-time*2.6+modulation*.5);
+ float ripple=.032*sin(dot(q,vec2(-1.7,1.12))-time*3.4);
+ float sharpCrest=.07*(pow(max(sin(phase),0.),3.)-.21);
+ return (swell+crossing+chop+ripple+sharpCrest)*surge;
+}
+float map(vec3 p,float time){float d=p.y-waterHeight(p.xz,time);p=bendSpace(p,time);vec3 pull=p-orbCenter;float influence=exp(-dot(pull,pull)*.045);float twist=.1*influence*sin(time*.45+length(pull)*.65);p.xy+=vec2(-pull.y,pull.x)*twist;d=min(d,arch(p));vec3 q=p;q.x=abs(mod(q.x+14.,28.)-14.);q.z=mod(q.z+9.,18.)-9.;d=min(d,cyl(q-vec3(9.,2.6,0.),2.6,.72));return d;}
 vec3 norm(vec3 p,float time){vec2 e=vec2(.003,0);return normalize(vec3(map(p+e.xyy,time)-map(p-e.xyy,time),map(p+e.yxy,time)-map(p-e.yxy,time),map(p+e.yyx,time)-map(p-e.yyx,time)));}
 float trace(vec3 ro,vec3 rd,out vec3 p,float time){float d=0.;for(int i=0;i<MAX;i++){p=ro+rd*d;float h=map(p,time);if(h<.003||d>85.)break;d+=h*.72;}return d;}
 vec3 sky(vec3 rd){float h=max(rd.y,0.);return mix(vec3(.018,.012,.045),vec3(.12,.075,.19),h);}
-void main(){if(transition>.5){gl_FragColor=vec4(1.);return;}vec2 fc=gl_FragCoord.xy;vec2 uv=(2.*fc-r)/r.y;float side=0.;float lensEdge=0.;if(vr>.5){
+void main(){if(transition>=1.){gl_FragColor=vec4(1.);return;}vec2 fc=gl_FragCoord.xy;vec2 uv=(2.*fc-r)/r.y;float side=0.;float lensEdge=0.;if(vr>.5){
 // Cardboard lens model, ported from Google's cardboard-vr-display (CardboardDistorter / DeviceInfo).
 // Each eye's projection centre sits exactly on its lens axis, so content at infinity lands on both
 // lens centres and the eyes look straight ahead to fuse it (no divergence).
@@ -79,7 +95,7 @@ float r2=dot(tn,tn);
 uv=tn*(1.+kd.x*r2+kd.y*r2*r2);
 if(abs(uv.x)>fovTan||abs(uv.y)>fovTan){gl_FragColor=vec4(0,0,0,1);return;}
 }
-float cy=cos(rot.x),sy=sin(rot.x),cx=cos(rot.y),sx=sin(rot.y);vec3 fw=normalize(vec3(sy*cx,sx,cy*cx)),rt=normalize(vec3(cy,0.,-sy)),up=normalize(cross(rt,fw));
+float cy=cos(rot.x),sy=sin(rot.x),cx=cos(rot.y),sx=sin(rot.y);vec3 fw=normalize(vec3(sy*cx,sx,cy*cx)),rt=normalize(vec3(cy,0.,-sy)),up=normalize(cross(fw,rt));
 float es=(side*2.-1.);vec3 ro=cp+rt*eye*es;
 // Parallel eye cameras (no toe-in, no convergence shear); off-axis framing comes from the lens centres.
 vec3 rd=normalize(fw+uv.x*rt+uv.y*up);
@@ -94,73 +110,64 @@ if(dist<85.){
  float lamps=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/3.),8.);
  float edge=exp(-abs(p.y-.08)*18.)*exp(-abs(abs(p.x)-4.5)*2.);
  col=vec3(.055,.045,.09)*diff+warm*(lamps*.27+edge*.2)+spectral*.105;
- float road=.16*sin(p.z*.16+t*.52+sin(p.x*.48)*1.4)*exp(-abs(p.x)*.18);
- if(p.y<road+.03){
-  vec3 rr=reflect(rd,n);
-  float caustic=pow(max(0.,sin(p.x*1.8+sin(p.z*1.4+t*.7)*.8+t*1.2)*sin(p.z*2.1-p.x*.5+t*.8)),8.);
-  col=mix(col,sky(rr)+warm*.18+spectral*.13,.54);
-  col+=mix(vec3(.16,.15,.3),vec3(.19,.38,.72),aurora)*caustic;
+ float road=waterHeight(p.xz,t);
+ if(p.y<road+.08){
+  float e=.025;
+  vec3 waterNormal=normalize(vec3(
+   waterHeight(p.xz-vec2(e,0.),t)-waterHeight(p.xz+vec2(e,0.),t),
+   2.*e,
+   waterHeight(p.xz-vec2(0.,e),t)-waterHeight(p.xz+vec2(0.,e),t)));
+  vec3 rr=reflect(rd,waterNormal);
+  float fresnel=.04+.96*pow(1.-max(dot(-rd,waterNormal),0.),5.);
+  vec3 deepWater=mix(vec3(.004,.012,.025),vec3(.012,.025,.045),aurora);
+  // Reflect nearby architecture instead of painting a sky gradient on the water.
+  vec3 reflected=sky(rr)*.55;
+  float travel=.12;
+  vec3 reflectionOrigin=p+waterNormal*.09;
+  for(int i=0;i<32;i++){
+   vec3 hit=reflectionOrigin+rr*travel;
+   float gap=map(hit,t);
+   if(gap<.015){
+    float reflectedLamps=pow(max(0.,1.-abs(mod(hit.z+6.,12.)-6.)/3.),8.);
+    reflected=vec3(.035,.03,.05)+spectral*.075+warm*reflectedLamps*.22;
+    reflected=mix(reflected,vec3(.025,.025,.06),1.-exp(-travel*.035));
+    break;
+   }
+   travel+=max(.025,gap*.65);
+   if(travel>45.)break;
+  }
+  col=mix(deepWater,reflected,.2+.75*fresnel);
+  vec3 halfVector=normalize(normalize(vec3(-.3,.65,-.4))-rd);
+  float sheen=pow(max(dot(waterNormal,halfVector),0.),160.);
+  col+=vec3(.23,.27,.31)*sheen;
+  float brokenCrest=.5+.5*sin(p.x*8.7-p.z*5.9+t*2.1+sin(p.z*3.1+t));
+  float crestFroth=smoothstep(.49,.78,road)*smoothstep(.64,.94,brokenCrest);
+  col=mix(col,vec3(.19,.23,.26),crestFroth*.34);
+  col+=orbLight(p+waterNormal*.02,rr,85.,t).rgb*(.15+.4*fresnel);
  }else if(p.y>5.5){
   float caustic=pow(max(0.,sin(p.x*1.8+sin(p.z*1.4+t*.7)*.8+t*1.2)*sin(p.z*2.1-p.x*.5+t*.8)),8.);
   float sheen=pow(max(dot(reflect(rd,n),normalize(vec3(.15,.8,-.5))),0.),18.);
   col=mix(col,sky(reflect(rd,n))+warm*.2+spectral*.18,.22);
   col+=mix(vec3(.35,.11,.58),vec3(.08,.4,.72),aurora)*caustic+vec3(.48,.39,.62)*sheen;
  }
- if(length(p-vec3(0.,3.3,-72.))<4.2){
-  float snakeA=snakeSdf(p,t,0.),snakeB=snakeSdf(p,t,1.);
-  float snake=min(snakeA,snakeB);
-  if(snake<.035){
-   float selected=snakeA<snakeB?0.:1.;
-   float bodySide=selected<.5?-1.:1.;
-   vec3 head=snakeHead(t,selected),delta=p-head;
-   float strike=selected<.5?attack:0.;
-   vec3 h=vec3(delta.x*(-bodySide*(1.-strike))+delta.z*strike,delta.y,-delta.x*strike+delta.z*(-bodySide*(1.-strike)));
-   float scales=.5+.5*sin(p.x*38.+mod(floor(p.y*34.),2.)*1.57+sin(p.z*21.)*.45)*sin(p.y*41.+p.z*6.);
-   vec3 scaleColor=selected<.5?vec3(.045,.17,.105):vec3(.19,.035,.09);
-   vec3 bellyColor=selected<.5?vec3(.38,.3,.18):vec3(.38,.2,.17);
-   col=mix(scaleColor,scaleColor*1.9,smoothstep(.28,.82,scales));
-   float bellyPlates=.5+.5*sin(p.y*72.+sin(p.x*9.)*.5);
-   if(n.y<-.32)col=mix(bellyColor,bellyColor*1.28,bellyPlates*.55);
-   vec3 litDir=normalize(vec3(-.3,.8,.4));
-   float spec=pow(max(dot(reflect(-litDir,n),-rd),0.),38.);
-   col=col*(.3+.7*max(dot(n,litDir),0.))+vec3(.8,.82,1.)*spec*.38;
-   vec3 eyeA=vec3(-.015,.1,.235),eyeB=vec3(-.015,.1,-.235);
-   float eyeDist=min(length(h-eyeA),length(h-eyeB));
-   if(eyeDist<.091){
-     col=vec3(1.,.055,.018)*(.65+.35*step(.5,sin(t*4.+selected)));
-     if(abs(h.x)<.028&&h.y>.035&&h.y<.17)col=vec3(.006,.002,.004);
-     float glint=min(length(h-(eyeA+vec3(-.018,.03,.012))),length(h-(eyeB+vec3(-.018,.03,-.012))));
-     if(glint<.018)col=vec3(1.,.65,.4);
-   }
-   float jaw=.1+.22*strike+.045*(.5+.5*sin(t*3.2+selected));
-   vec3 fangA=vec3(.3,-.045,-.14),fangB=vec3(.33,-.17-jaw*.35,-.14);
-   vec3 fangC=vec3(.3,-.045,.14),fangD=vec3(.33,-.17-jaw*.35,.14);
-   if(min(capsule(h,fangA,fangB,.038),capsule(h,fangC,fangD,.038))<.036)col=vec3(.97,.83,.58);
-   vec3 mouthDelta=h-vec3(.25,-.11-jaw*.22,0.);
-   if(abs(mouthDelta.x)<.2&&abs(mouthDelta.y)<.13&&abs(mouthDelta.z)<.18&&h.y<-.035&&h.y>-.25-jaw)col=vec3(.012,.003,.009);
-   float flick=(.17+.22*strike)*(.5+.5*sin(t*7.+selected*3.));
-   if(length(h-vec3(.34+flick,-.13,0.))<.035)col=vec3(.86,.035,.17);
-  }
- }
+ float whiteSpill=exp(-length(p-orbCenter)*.28);
+ col+=vec3(.95,.97,1.)*whiteSpill*(.98+.02*sin(t*.75));
  float fog=1.-exp(-dist*.027);
  col=mix(col,mix(vec3(.035,.014,.095),vec3(.025,.045,.14),aurora),fog);
 }
 float glow=pow(max(0.,1.-abs(mod(p.z+6.,12.)-6.)/5.),10.)*.06;
 col+=vec3(.56,.29,.78)*glow;
-float radialRate=dot(rd.xz,rd.xz);
-float along=radialRate>.0001?-(ro.x*rd.x+(ro.z+72.)*rd.z)/radialRate:0.;
-vec3 beamPoint=ro+rd*max(along,0.);
-float beamRadius=mix(4.8,1.75,clamp(beamPoint.y/6.4,0.,1.));
-float beamDistance=length(vec2(beamPoint.x,beamPoint.z+72.));
-float beam=exp(-beamDistance/max(beamRadius,.01)*2.1)*exp(-max(along,0.)*.0035);
-if(along>0.&&beamPoint.y>.08&&beamPoint.y<6.45){
- float dust=pow(max(0.,sin(beamPoint.x*17.+beamPoint.y*13.+t*1.5)*sin(beamPoint.z*9.-t)),12.);
- col+=vec3(1.)*beam*.68+vec3(.35,.12,.75)*beam*.16+vec3(.12,.28,.8)*dust*beam*.55;
-}
-float topAlong=(6.42-ro.y)/max(rd.y,.0001);
-vec3 topPoint=ro+rd*topAlong;
-float aperture=exp(-length(topPoint-vec3(0.,6.42,-72.))*3.8)*step(0.,rd.y)*step(0.,topAlong)*step(topAlong,85.);
-col+=vec3(1.)*aperture*.9;
+// Sphere intersection and atmospheric glow, occluded by scene geometry.
+vec4 orb=orbLight(ro,rd,min(dist,85.),t);
+col=col*(1.-orb.a)+orb.rgb;
+// A faint halo remains visible beyond the normal geometry tracing range.
+// Only rays with an unobstructed foreground receive this distant light scatter.
+vec3 distantOffset=orbCenter-ro;
+float distantAlong=dot(distantOffset,rd);
+float distantMiss=length(distantOffset-rd*distantAlong);
+float clearForeground=step(.006,map(ro+rd*dist,t));
+float distantHint=exp(-distantMiss*distantMiss*.065)*smoothstep(85.,115.,distantAlong)*clearForeground;
+col+=vec3(.25,.27,.31)*distantHint*(.94+.06*sin(t*.75));
 float gazeDot=clamp(dot(rd,fw),-1.,1.);
 float portalRadius=acos(gazeDot)*8.;
 float portalPulse=.5+.5*sin(t*2.1+fold*3.);
@@ -175,6 +182,7 @@ if(vr>.5&&crossOn>.5){vec2 gd=abs(fract(uv*4.+.5)-.5)/4.;float a=step(min(gd.x,g
 float grain=fract(sin(dot(fc+floor(t*24.),vec2(12.9898,78.233)))*43758.5453);
 col+=(grain-.5)*.018;
 if(vr>.5){col.r+=lensEdge*.025;col.b+=lensEdge*.018;col*=1.-lensEdge*.13;}
+col=mix(col,vec3(1.),smoothstep(0.,1.,transition));
 gl_FragColor=vec4(col,1);}`;
 function shader(type,src){let s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}let pr=gl.createProgram();gl.attachShader(pr,shader(gl.VERTEX_SHADER,V));gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,F));gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);let b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);let a=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
 const U=n=>gl.getUniformLocation(pr,n),ur=U('r'),ut=U('t'),uc=U('cp'),urot=U('rot'),uvr=U('vr'),ue=U('eye'),uLensL=U('lensL'),uLensR=U('lensR'),uPxPerM=U('pxPerM'),uScreenLens=U('screenLens'),uKd=U('kd'),uFovTan=U('fovTan'),uCross=U('crossOn'),uTransition=U('transition'),uAttack=U('attack'),uFold=U('fold'),uFade=U('fade');let pos={x:0,y:1.68,z:7},yaw=Math.PI,pitch=0,keys={},vr=false,last=performance.now();
@@ -200,7 +208,7 @@ function vrGeometry(){
 const params=new URLSearchParams(location.search), role=params.get('mode')||'controller';
 const status=document.getElementById('status'), motionBtn=document.getElementById('motion'), vrBtn=document.getElementById('vr');
 if(role==='headset'){vr=true;document.body.classList.add('vr','headset');document.getElementById('title').textContent='CARDBOARD HEADSET';document.getElementById('hint').textContent='Turn your head to reveal portals · W/S walk';vrBtn.style.display='none';motionBtn.style.display='none';document.querySelector('.touch').style.display='none';}
-if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').textContent='MASTER SIMULATION';document.getElementById('hint').innerHTML='👍👍 / W = forward · S = reverse after looking back<br>Mouse look bends space · headset follows phone gaze';vrBtn.style.display='none';}
+if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').textContent='MASTER SIMULATION';document.getElementById('hint').innerHTML='Point left/right = sidestep | index up = forward<br>Open palm = backward | index circle = full turn';vrBtn.style.display='none';}
 function normalizedKey(e){const k=e.key.toLowerCase();return ({arrowup:'w',arrowdown:'s',arrowleft:'a',arrowright:'d'})[k]||k}
 addEventListener('keydown',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=true}});
 addEventListener('keyup',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=false}});
@@ -213,7 +221,61 @@ document.querySelectorAll('.touch button').forEach(button=>{
 if(role!=='headset'){canvas.addEventListener('click',()=>canvas.requestPointerLock?.());addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){yaw-=e.movementX*.0022;pitch=Math.max(-1.25,Math.min(1.25,pitch-e.movementY*.0022))}})}
 vrBtn.onclick=()=>{vr=!vr;document.body.classList.toggle('vr',vr);vrBtn.textContent=vr?'NORMAL VIEW':'CARDBOARD VIEW'};
 let synced=false,lastSeq=-1,walkSeconds=0,dreamTransition=false,routeHeading=yaw,routeFolded=false,foldLevel=0,swallowStarted=-1,attackLevel=0,fadeLevel=0,headTrackingEnabled=false,headsetConn=null,publishHeadLook=()=>{},headOrientationBase=null,lastHeadSend=0;
-let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,walkSeconds:0,transition:false,fold:0,attack:0,fade:0,serverTime:0};
+// The master owns scene timing; the headset receives the same fade progress.
+const FIRST_SCENE_MS=45000,WHITE_FADE_MS=2000;
+// Optional solo preview; normal controller/headset timing stays at 45 seconds.
+const firstSceneStarted=performance.now()-(role==='solo'&&params.get('scene')==='2'?FIRST_SCENE_MS+WHITE_FADE_MS+3500:0);
+let whiteFadeStarted=null,whiteProgress=0;
+let ruralScene=null,ruralOrigin=null,ruralAge=0;
+const RURAL_DURATION_SECONDS=120;
+let ruralReadyAge=null,ruralExitAge=null,ruralExitProgress=0;
+let ruralLoadError=null,ruralRevealStarted=null;
+function ruralSceneFailed(error){
+ ruralLoadError=error;
+ ruralScene?.hide();ruralScene=null;
+ document.body.classList.remove('transitioning');
+ console.error('Rural scene could not load',error);
+ status.textContent='Visual 2 could not load. Keep visual2.bundle.js beside index.html, then reload.';
+}
+async function prepareRuralScene(){
+ try{
+  if(!window.RuralVisual)throw Error('visual2.bundle.js did not load');
+  const scene=window.RuralVisual.createRuralScene();
+  await scene.prepare({x:0,z:12,yaw:Math.PI,pitch:0,time:0,vr,
+   geometry:vrGeometry(),viewer:VIEWER,calib,w:canvas.width,h:canvas.height});
+  ruralScene=scene;
+ }catch(error){ruralSceneFailed(error);}
+}
+// The deferred classic bundle includes the model and textures. Prepare it in
+// the background, while visual 1 remains visible, without navigating away.
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',prepareRuralScene,{once:true});
+else prepareRuralScene();
+function advanceWhiteScene(now){
+ const reachedLight=Math.hypot(pos.x-3.15,pos.y-2.1,pos.z+140)<=1.7;
+ if(whiteFadeStarted===null&&(reachedLight||now-firstSceneStarted>=FIRST_SCENE_MS)){
+  whiteFadeStarted=reachedLight?now:firstSceneStarted+FIRST_SCENE_MS;
+  dreamTransition=true;
+ }
+ if(whiteFadeStarted!==null){
+  whiteProgress=clamp01((now-whiteFadeStarted)/WHITE_FADE_MS);
+  if(whiteProgress>=1){
+   if(!ruralOrigin)ruralOrigin={x:pos.x,z:pos.z};
+   ruralAge=Math.max(0,(now-whiteFadeStarted-WHITE_FADE_MS)/1000);
+  }
+ }
+}
+function advanceRuralExit(){
+ if(whiteProgress<1||!ruralOrigin||!ruralScene)return;
+ // Start the two-minute visit only once the landscape is ready to display.
+ if(ruralReadyAge===null)ruralReadyAge=ruralAge;
+ if(ruralExitAge===null){
+  const reached=ruralScene.reachedGlowBall(pos.x-ruralOrigin.x,pos.z-ruralOrigin.z+12);
+  if(ruralAge-ruralReadyAge>=RURAL_DURATION_SECONDS)ruralExitAge=ruralReadyAge+RURAL_DURATION_SECONDS;
+  else if(reached)ruralExitAge=ruralAge;
+ }
+ ruralExitProgress=ruralExitAge===null?0:clamp01((ruralAge-ruralExitAge)/(WHITE_FADE_MS/1000));
+}
+let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,walkSeconds:0,transition:false,whiteProgress:0,ruralOrigin:null,ruralAge:0,ruralExitAge:null,fold:0,attack:0,fade:0,serverTime:0};
 function angleDelta(a,b){return ((a-b+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI}
 function clamp01(x){return Math.max(0,Math.min(1,x))}
 function smooth01(x){x=clamp01(x);return x*x*(3.-2.*x)}
@@ -347,7 +409,7 @@ if(role==='headset'){
    // Some networks silently block WebRTC; don't wait forever for a link that never opens.
    openTimer=setTimeout(()=>{if(c===conn&&!c.open){setLink('Still connecting… if this persists, try another network (e.g. mobile data).',false);try{c.close()}catch{};schedule(500)}},12000);
    c.on('open',()=>{if(c!==conn)return;clearTimeout(openTimer);lastSeq=-1;lastData=performance.now();setLink('Connected to laptop',true)});
-   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.walkSeconds=Number.isFinite(x.walkSeconds)?x.walkSeconds:0;target.transition=!!x.transition;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
+   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.walkSeconds=Number.isFinite(x.walkSeconds)?x.walkSeconds:0;target.transition=!!x.transition;target.whiteProgress=Number.isFinite(x.whiteProgress)?clamp01(x.whiteProgress):0;target.ruralOrigin=x.ruralOrigin&&Number.isFinite(x.ruralOrigin.x)&&Number.isFinite(x.ruralOrigin.z)?x.ruralOrigin:null;target.ruralAge=Number.isFinite(x.ruralAge)?Math.max(0,x.ruralAge):0;target.ruralExitAge=Number.isFinite(x.ruralExitAge)?Math.max(0,x.ruralExitAge):null;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
    c.on('close',()=>{if(c!==conn)return;synced=false;setLink('Connection lost · reconnecting…',false);schedule()});
   }
   // The laptop streams state ~30x/s even when standing still, so silence means the link is dead.
@@ -365,42 +427,50 @@ if(role==='headset'){
   });
  }
 }
-// Laptop webcam: both detected thumbs-up => forward. Keyboard remains a fallback for testing.
-let thumbsForward=false,detectedHands=0,detectedThumbs=0;
+// Webcam gestures drive the common movement loop for both visuals.
+let detectedHands=0;
+const navigationGestures=new DreamGestures.NavigationGestures();
+let gestureTurn=null;
+addEventListener('blur',()=>{navigationGestures.reset();gestureTurn=null;});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){navigationGestures.reset();gestureTurn=null;}});
 const camstat=document.getElementById('camstat'),video=document.getElementById('webcam');
-function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
-function thumbUp(l){
- const palm=dist(l[0],l[9]); if(palm<.03)return false;
- const extended=dist(l[4],l[2])>palm*.72;
- const above=l[4].y < l[2].y-palm*.10 && l[4].y < l[0].y-palm*.20;
- let folded=0; for(const [tip,pip] of [[8,6],[12,10],[16,14],[20,18]]) if(l[tip].y>l[pip].y-palm*.05) folded++;
- return extended&&above&&folded>=2;
-}
 async function startHands(){if(role!=='controller')return;
  if(!window.Hands||!window.Camera){camstat.textContent='Hand tracker could not load · keyboard still works';return;}
  try{
   const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
   hands.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:.5,minTrackingConfidence:.5});
-  hands.onResults(r=>{const list=r.multiHandLandmarks||[];detectedHands=list.length;detectedThumbs=list.filter(thumbUp).length;thumbsForward=detectedHands>=2&&detectedThumbs>=2;camstat.textContent=`Hands ${detectedHands} · thumbs ${detectedThumbs} · ${thumbsForward?'FORWARD':'STOP'}`;});
-  const cam=new Camera(video,{onFrame:async()=>{await hands.send({image:video})},width:640,height:480});await cam.start();camstat.textContent='Show both thumbs up to move';
+  hands.onResults(r=>{
+   detectedHands=(r.multiHandLandmarks||[]).length;
+   const now=performance.now(),result=navigationGestures.update(r.multiHandLandmarks||[],now);
+   if(result.turn&&!gestureTurn)gestureTurn={started:now,previous:0,direction:result.turn};
+   camstat.textContent=gestureTurn?'Turning full circle':detectedHands>1?'Use one hand at a time':('Gesture: '+result.command);
+  });
+  const cam=new Camera(video,{onFrame:async()=>{await hands.send({image:video})},width:640,height:480});await cam.start();camstat.textContent='Show one hand to navigate';
  }catch(e){camstat.textContent='Camera unavailable · allow webcam permission';}
 }
 startHands();
 let walkVelocity=0,lastPost=0,sendSeq=0;
-function publish(now,moving,source,vx=0,vz=0){if(role!=='controller'||!conns.size||now-lastPost<32)return;lastPost=now;const msg={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,walkSeconds,transition:dreamTransition,moving,source,seq:++sendSeq};for(const c of conns)if(c.open)try{c.send(msg)}catch{}}
+function publish(now,moving,source,vx=0,vz=0){if(role!=='controller'||!conns.size||now-lastPost<32)return;lastPost=now;const msg={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,walkSeconds,transition:dreamTransition,whiteProgress,ruralOrigin,ruralAge,ruralExitAge,moving,source,seq:++sendSeq};for(const c of conns)if(c.open)try{c.send(msg)}catch{}}
 if(role==='controller'&&!conns.size)status.textContent='MASTER · creating room…';
 if(role==='solo')status.textContent='Solo mode';
 function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
  if(role!=='headset'){
-  const forward=!!keys.w||thumbsForward,back=!!keys.s,left=!!keys.a,right=!!keys.d,fast=!!keys.shift;
-  let target=forward&&walkSeconds<10?(fast?10:8.1):0;walkVelocity+=(target-walkVelocity)*Math.min(1,dt*5);if(back)walkVelocity=-8.1;
-  if(walkVelocity>0)walkSeconds=Math.min(10,walkSeconds+walkVelocity*dt/8.1);
-  else if(walkVelocity<0)walkSeconds=Math.max(0,walkSeconds+walkVelocity*dt/8.1);
-  if(forward&&walkSeconds>=10)walkVelocity=0;
-  if(back&&walkSeconds<=0)walkVelocity=0;
-  if(walkSeconds>=10&&pitch>=.78)dreamTransition=true;
-  let fx=Math.sin(yaw),fz=Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);pos.x+=fx*walkVelocity*dt;pos.z+=fz*walkVelocity*dt;let side=3*dt;if(left){pos.x-=rx*side;pos.z-=rz*side}if(right){pos.x+=rx*side;pos.z+=rz*side}
-  publish(now,Math.abs(walkVelocity)>.08,thumbsForward?'thumbs':'keyboard',fx*walkVelocity,fz*walkVelocity);
+  const startX=pos.x,startZ=pos.z;
+  if(gestureTurn){
+   const progress=Math.min(1,(now-gestureTurn.started)/6000),smooth=progress*progress*(3-2*progress);
+   const delta=(smooth-gestureTurn.previous)*Math.PI*2*gestureTurn.direction;
+   yaw+=delta;bodyYaw+=delta;gestureTurn.previous=smooth;
+   if(progress>=1)gestureTurn=null;
+  }
+  const gesture=gestureTurn?'stop':navigationGestures.current(now);
+  const forward=!!keys.w||gesture==='forward',back=!!keys.s||gesture==='backward',left=!!keys.a||gesture==='left',right=!!keys.d||gesture==='right',fast=!!keys.shift;
+  let target=forward?(fast?10:8.1):0;walkVelocity+=(target-walkVelocity)*Math.min(1,dt*5);if(back)walkVelocity=-8.1;
+  if(walkVelocity>0)walkSeconds+=walkVelocity*dt/8.1;
+  else if(walkVelocity<0)walkSeconds+=walkVelocity*dt/8.1;
+  let fx=Math.sin(yaw),fz=Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);pos.x+=fx*walkVelocity*dt;pos.z+=fz*walkVelocity*dt;let side=3*dt*(ruralOrigin?-1:1);if(left){pos.x-=rx*side;pos.z-=rz*side}if(right){pos.x+=rx*side;pos.z+=rz*side}
+  advanceWhiteScene(now);
+  advanceRuralExit();
+  publish(now,Math.hypot(pos.x-startX,pos.z-startZ)>.0001,gesture!=='stop'||gestureTurn?'gesture':'keyboard',dt>0?(pos.x-startX)/dt:0,dt>0?(pos.z-startZ)/dt:0);
  } else if(synced){
   // Predict between network packets, then gently correct to the laptop's authoritative pose.
   const age=Math.min(.12,(performance.now()-target.serverTime)/1000);
@@ -408,9 +478,32 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   const k=1-Math.exp(-dt*18);pos.x+=(px-pos.x)*k;pos.y+=(target.y-pos.y)*k;pos.z+=(pz-pos.z)*k;
   bodyYaw+=angleDelta(target.yaw,bodyYaw)*k;yaw=bodyYaw;pitch+=(target.pitch-pitch)*k;
   walkSeconds=target.walkSeconds;
-  if(target.transition||(walkSeconds>=10&&pitch>=.78))dreamTransition=true;
+  dreamTransition=target.transition;
+  whiteProgress=target.transition?clamp01(target.whiteProgress+Math.min(.25,(now-target.serverTime)/1000)*1000/WHITE_FADE_MS):0;
+  ruralOrigin=target.ruralOrigin;
+  ruralAge=target.ruralAge+Math.min(.25,(now-target.serverTime)/1000);
+  ruralExitAge=target.ruralExitAge;
+  ruralExitProgress=ruralExitAge===null?0:clamp01((ruralAge-ruralExitAge)/(WHITE_FADE_MS/1000));
  }
  if(headLook){yaw=bodyYaw+headLook.yaw;pitch=headLook.pitch}
- if(dreamTransition)document.body.classList.add('transitioning');
- gl.uniform2f(ur,canvas.width,canvas.height);gl.uniform1f(ut,now/1000);gl.uniform3f(uc,pos.x,pos.y,pos.z);gl.uniform2f(urot,yaw,pitch);gl.uniform1f(uvr,vr?1:0);const g=vrGeometry();gl.uniform1f(ue,g.eyeHalf);gl.uniform2f(uLensL,g.lx,g.ly);gl.uniform2f(uLensR,g.rx,g.ly);gl.uniform1f(uPxPerM,g.pxPerM);gl.uniform1f(uScreenLens,VIEWER.screenLensMm/1000);gl.uniform2f(uKd,VIEWER.k[0]*calib.kScale,VIEWER.k[1]*calib.kScale);gl.uniform1f(uFovTan,Math.tan(VIEWER.fovDeg*Math.PI/180));gl.uniform1f(uCross,calib.cross?1:0);gl.uniform1f(uTransition,dreamTransition?1:0);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(loop)}requestAnimationFrame(loop);
+ // Visual 3 is not built yet. Hold on white after the synchronized exit fade.
+ if(ruralExitProgress>=1){
+  ruralScene?.hide();document.body.classList.add('transitioning');
+  gl.clearColor(1,1,1,1);gl.clear(gl.COLOR_BUFFER_BIT);
+  requestAnimationFrame(loop);return;
+ }
+ if(whiteProgress>=1&&ruralOrigin&&ruralScene){
+  document.body.classList.toggle('transitioning',ruralExitAge!==null);
+  if(ruralRevealStarted===null)ruralRevealStarted=now;
+  // Slow asset loading must not skip the fade from white into the landscape.
+  const landscapeReveal=clamp01(Math.min(ruralAge,(now-ruralRevealStarted)/1000)/3.5);
+  try{
+   ruralScene.render({x:pos.x-ruralOrigin.x,z:pos.z-ruralOrigin.z+12,yaw,pitch,
+    time:ruralAge,reveal:landscapeReveal*(1-ruralExitProgress),vr,geometry:vrGeometry(),viewer:VIEWER,calib,
+    w:canvas.width,h:canvas.height});
+   requestAnimationFrame(loop);return;
+  }catch(error){ruralSceneFailed(error);}
+ }
+ document.body.classList.toggle('transitioning',whiteProgress>=1&&!ruralLoadError);
+ gl.uniform2f(ur,canvas.width,canvas.height);gl.uniform1f(ut,now/1000);gl.uniform3f(uc,pos.x,pos.y,pos.z);gl.uniform2f(urot,yaw,pitch);gl.uniform1f(uvr,vr?1:0);const g=vrGeometry();gl.uniform1f(ue,g.eyeHalf);gl.uniform2f(uLensL,g.lx,g.ly);gl.uniform2f(uLensR,g.rx,g.ly);gl.uniform1f(uPxPerM,g.pxPerM);gl.uniform1f(uScreenLens,VIEWER.screenLensMm/1000);gl.uniform2f(uKd,VIEWER.k[0]*calib.kScale,VIEWER.k[1]*calib.kScale);gl.uniform1f(uFovTan,Math.tan(VIEWER.fovDeg*Math.PI/180));gl.uniform1f(uCross,calib.cross?1:0);gl.uniform1f(uTransition,whiteProgress);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(loop)}requestAnimationFrame(loop);
 </script></body></html>
