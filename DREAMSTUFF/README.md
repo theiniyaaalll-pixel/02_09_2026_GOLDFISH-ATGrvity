@@ -1,6 +1,6 @@
 # Liminal VR synchronized v8
 
-A laptop controls a freely explorable underwater bridge with reflective water and a distant white light sphere. Reaching the sphere, or spending 45 seconds in the first visual, starts a white fade into a warm rural landscape with grass, shallow ponds, trees and translucent cellular materials. The phone mirrors the scene in calibrated Cardboard stereo with head tracking.
+A laptop controls a freely explorable underwater bridge with reflective water and a distant white light sphere. Reaching the sphere, or spending four minutes in the first visual, starts a white fade into a warm rural landscape with grass, shallow ponds, trees and translucent cellular materials. The phone mirrors the scene in calibrated Cardboard stereo with head tracking.
 
 ## Flow
 

@@ -81,6 +81,49 @@ float map(vec3 p,float time){float d=p.y-waterHeight(p.xz,time);p=bendSpace(p,ti
 vec3 norm(vec3 p,float time){vec2 e=vec2(.003,0);return normalize(vec3(map(p+e.xyy,time)-map(p-e.xyy,time),map(p+e.yxy,time)-map(p-e.yxy,time),map(p+e.yyx,time)-map(p-e.yyx,time)));}
 float trace(vec3 ro,vec3 rd,out vec3 p,float time){float d=0.;for(int i=0;i<MAX;i++){p=ro+rd*d;float h=map(p,time);if(h<.003||d>85.)break;d+=h*.72;}return d;}
 vec3 sky(vec3 rd){float h=max(rd.y,0.);return mix(vec3(.018,.012,.045),vec3(.12,.075,.19),h);}
+float rainHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+// Local circular impacts perturb only the water's shading normal, keeping
+// the expensive geometry tracing and the existing large swells unchanged.
+vec3 rainRipples(vec2 point,float time){
+ vec2 cell=floor(point*1.35);vec2 slope=vec2(0.);float rings=0.;
+ for(int x=-1;x<=1;x++)for(int z=-1;z<=1;z++){
+  vec2 id=cell+vec2(float(x),float(z));float seed=rainHash(id);
+  float cycle=time*.95+seed*13.;float event=floor(cycle),age=fract(cycle);
+  vec2 center=(id+vec2(rainHash(id+event+3.),rainHash(id-event+19.)))/1.35;
+  vec2 delta=point-center;float radius=length(delta),front=age*.65;
+  float envelope=exp(-pow((radius-front)*13.,2.))*sin(age*3.14159)*(1.-age);
+  float wave=(radius-front)*45.;
+  slope+=delta/max(radius,.001)*cos(wave)*envelope*.13;
+  rings+=max(sin(wave),0.)*envelope;
+ }
+ return vec3(slope,rings);
+}
+// World-space falling streaks, clipped by the traced foreground. Both stereo
+// eyes see the same rain positions, rather than a screen-space rain overlay.
+float fallingRain(vec3 origin,vec3 direction,float limit,float time){
+ float rain=0.;
+ for(int i=0;i<12;i++){
+  float axis=mod(float(i),2.);float originAxis=mix(origin.z,origin.x,axis);
+  float rayAxis=mix(direction.z,direction.x,axis);
+  if(abs(rayAxis)<.12)continue;
+  float plane=(floor(originAxis/3.)+sign(rayAxis)*(floor(float(i)*.5)+1.))*3.;
+  float travel=(plane-originAxis)/rayAxis;
+  if(travel<.5||travel>min(limit,28.))continue;
+  vec3 q=origin+direction*travel;
+  float lateral=mix(q.x,q.z,axis);
+  vec2 cell=vec2(floor(lateral/.85),floor((q.y+time*7.5)/6.4));
+  float seed=rainHash(cell+vec2(plane*3.1,axis*47.));
+  float dropX=(cell.x+.15+seed*.7)*.85;
+  float dropY=(cell.y+rainHash(cell+plane+71.))*6.4-time*7.5;
+  float dy=q.y-dropY;
+  float width=.008+travel*.0005;
+  float streak=exp(-pow((lateral-dropX-dy*.045)/width,2.));
+  streak*=smoothstep(-.24,-.16,dy)*(1.-smoothstep(.02,.08,dy));
+  streak*=smoothstep(.9,1.5,q.y-waterHeight(q.xz,time)+1.);
+  rain+=streak*exp(-travel*.055)*(.13+seed*.18);
+ }
+ return min(rain,.48);
+}
 void main(){if(transition>=1.){gl_FragColor=vec4(1.);return;}vec2 fc=gl_FragCoord.xy;vec2 uv=(2.*fc-r)/r.y;float side=0.;float lensEdge=0.;if(vr>.5){
 // Cardboard lens model, ported from Google's cardboard-vr-display (CardboardDistorter / DeviceInfo).
 // Each eye's projection centre sits exactly on its lens axis, so content at infinity lands on both
@@ -117,6 +160,8 @@ if(dist<85.){
    waterHeight(p.xz-vec2(e,0.),t)-waterHeight(p.xz+vec2(e,0.),t),
    2.*e,
    waterHeight(p.xz-vec2(0.,e),t)-waterHeight(p.xz+vec2(0.,e),t)));
+  vec3 impacts=rainRipples(p.xz,t);
+  waterNormal=normalize(waterNormal+vec3(-impacts.x,0.,-impacts.y));
   vec3 rr=reflect(rd,waterNormal);
   float fresnel=.04+.96*pow(1.-max(dot(-rd,waterNormal),0.),5.);
   vec3 deepWater=mix(vec3(.004,.012,.025),vec3(.012,.025,.045),aurora);
@@ -140,6 +185,7 @@ if(dist<85.){
   vec3 halfVector=normalize(normalize(vec3(-.3,.65,-.4))-rd);
   float sheen=pow(max(dot(waterNormal,halfVector),0.),160.);
   col+=vec3(.23,.27,.31)*sheen;
+  col+=vec3(.07,.09,.12)*impacts.z*exp(-dist*.035);
   float brokenCrest=.5+.5*sin(p.x*8.7-p.z*5.9+t*2.1+sin(p.z*3.1+t));
   float crestFroth=smoothstep(.49,.78,road)*smoothstep(.64,.94,brokenCrest);
   col=mix(col,vec3(.19,.23,.26),crestFroth*.34);
@@ -175,6 +221,7 @@ float portalRing=exp(-abs(portalRadius-(.92+.09*sin(t*1.7)))*19.)*fold;
 float portalInner=(1.-smoothstep(.72,1.02,portalRadius))*fold;
 col+=vec3(.52,.09,.95)*portalRing*(.55+.45*portalPulse)+vec3(.08,.25,.72)*portalRing*.5;
 col=mix(col,col*vec3(.34,.18,.72)+vec3(.06,.02,.17),portalInner*.46);
+col+=vec3(.48,.56,.68)*fallingRain(ro,rd,dist,t);
 col=col/(col+.72);col=pow(col,vec3(.78));
 float vig=1.-(vr>.5?.08:.18)*dot(uv,uv);col*=vig;
 col=mix(col,vec3(.001,.001,.004),fade);
@@ -222,14 +269,14 @@ if(role!=='headset'){canvas.addEventListener('click',()=>canvas.requestPointerLo
 vrBtn.onclick=()=>{vr=!vr;document.body.classList.toggle('vr',vr);vrBtn.textContent=vr?'NORMAL VIEW':'CARDBOARD VIEW'};
 let synced=false,lastSeq=-1,walkSeconds=0,dreamTransition=false,routeHeading=yaw,routeFolded=false,foldLevel=0,swallowStarted=-1,attackLevel=0,fadeLevel=0,headTrackingEnabled=false,headsetConn=null,publishHeadLook=()=>{},headOrientationBase=null,lastHeadSend=0;
 // The master owns scene timing; the headset receives the same fade progress.
-const FIRST_SCENE_MS=45000,WHITE_FADE_MS=2000;
-// Optional solo preview; normal controller/headset timing stays at 45 seconds.
+const FIRST_SCENE_MS=240000,WHITE_FADE_MS=2000;
+// Optional solo preview; normal controller/headset timing stays at four minutes.
 const firstSceneStarted=performance.now()-(role==='solo'&&params.get('scene')==='2'?FIRST_SCENE_MS+WHITE_FADE_MS+3500:0);
 let whiteFadeStarted=null,whiteProgress=0;
 let ruralScene=null,ruralOrigin=null,ruralAge=0;
 const RURAL_DURATION_SECONDS=120;
 let ruralReadyAge=null,ruralExitAge=null,ruralExitProgress=0;
-let ruralLoadError=null,ruralRevealStarted=null;
+let ruralLoadError=null;
 function ruralSceneFailed(error){
  ruralLoadError=error;
  ruralScene?.hide();ruralScene=null;
@@ -275,7 +322,7 @@ function advanceRuralExit(){
  }
  ruralExitProgress=ruralExitAge===null?0:clamp01((ruralAge-ruralExitAge)/(WHITE_FADE_MS/1000));
 }
-let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,walkSeconds:0,transition:false,whiteProgress:0,ruralOrigin:null,ruralAge:0,ruralExitAge:null,fold:0,attack:0,fade:0,serverTime:0};
+let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,walkSeconds:0,scene:1,transition:false,whiteProgress:0,ruralOrigin:null,ruralAge:0,ruralReadyAge:null,ruralExitAge:null,fold:0,attack:0,fade:0,serverTime:0};
 function angleDelta(a,b){return ((a-b+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI}
 function clamp01(x){return Math.max(0,Math.min(1,x))}
 function smooth01(x){x=clamp01(x);return x*x*(3.-2.*x)}
@@ -409,7 +456,7 @@ if(role==='headset'){
    // Some networks silently block WebRTC; don't wait forever for a link that never opens.
    openTimer=setTimeout(()=>{if(c===conn&&!c.open){setLink('Still connecting… if this persists, try another network (e.g. mobile data).',false);try{c.close()}catch{};schedule(500)}},12000);
    c.on('open',()=>{if(c!==conn)return;clearTimeout(openTimer);lastSeq=-1;lastData=performance.now();setLink('Connected to laptop',true)});
-   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.walkSeconds=Number.isFinite(x.walkSeconds)?x.walkSeconds:0;target.transition=!!x.transition;target.whiteProgress=Number.isFinite(x.whiteProgress)?clamp01(x.whiteProgress):0;target.ruralOrigin=x.ruralOrigin&&Number.isFinite(x.ruralOrigin.x)&&Number.isFinite(x.ruralOrigin.z)?x.ruralOrigin:null;target.ruralAge=Number.isFinite(x.ruralAge)?Math.max(0,x.ruralAge):0;target.ruralExitAge=Number.isFinite(x.ruralExitAge)?Math.max(0,x.ruralExitAge):null;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
+   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.walkSeconds=Number.isFinite(x.walkSeconds)?x.walkSeconds:0;target.transition=!!x.transition;target.whiteProgress=Number.isFinite(x.whiteProgress)?clamp01(x.whiteProgress):0;target.ruralOrigin=x.ruralOrigin&&Number.isFinite(x.ruralOrigin.x)&&Number.isFinite(x.ruralOrigin.z)?x.ruralOrigin:null;target.ruralAge=Number.isFinite(x.ruralAge)?Math.max(0,x.ruralAge):0;target.scene=[1,2,3].includes(x.scene)?x.scene:(target.ruralOrigin?2:1);target.ruralReadyAge=Number.isFinite(x.ruralReadyAge)?Math.max(0,x.ruralReadyAge):null;target.ruralExitAge=Number.isFinite(x.ruralExitAge)?Math.max(0,x.ruralExitAge):null;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
    c.on('close',()=>{if(c!==conn)return;synced=false;setLink('Connection lost · reconnecting…',false);schedule()});
   }
   // The laptop streams state ~30x/s even when standing still, so silence means the link is dead.
@@ -449,8 +496,15 @@ async function startHands(){if(role!=='controller')return;
  }catch(e){camstat.textContent='Camera unavailable · allow webcam permission';}
 }
 startHands();
-let walkVelocity=0,lastPost=0,sendSeq=0;
-function publish(now,moving,source,vx=0,vz=0){if(role!=='controller'||!conns.size||now-lastPost<32)return;lastPost=now;const msg={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,walkSeconds,transition:dreamTransition,whiteProgress,ruralOrigin,ruralAge,ruralExitAge,moving,source,seq:++sendSeq};for(const c of conns)if(c.open)try{c.send(msg)}catch{}}
+let walkVelocity=0,lastPost=0,sendSeq=0,lastPublishedScene=1;
+function publish(now,moving,source,vx=0,vz=0){
+ const scene=ruralExitProgress>=1?3:ruralOrigin?2:1;
+ // Send scene changes on the next frame, bypassing the normal pose throttle.
+ if(role!=='controller'||!conns.size||(scene===lastPublishedScene&&now-lastPost<32))return;
+ lastPost=now;lastPublishedScene=scene;
+ const msg={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,walkSeconds,scene,transition:dreamTransition,whiteProgress,ruralOrigin,ruralAge,ruralReadyAge,ruralExitAge,moving,source,seq:++sendSeq};
+ for(const c of conns)if(c.open)try{c.send(msg)}catch{}
+}
 if(role==='controller'&&!conns.size)status.textContent='MASTER · creating room…';
 if(role==='solo')status.textContent='Solo mode';
 function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
@@ -475,15 +529,17 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   // Predict between network packets, then gently correct to the laptop's authoritative pose.
   const age=Math.min(.12,(performance.now()-target.serverTime)/1000);
   const px=target.x+target.vx*age,pz=target.z+target.vz*age;
-  const k=1-Math.exp(-dt*18);pos.x+=(px-pos.x)*k;pos.y+=(target.y-pos.y)*k;pos.z+=(pz-pos.z)*k;
+  const enteringLandscape=!!target.ruralOrigin&&!ruralOrigin;
+  const k=enteringLandscape?1:1-Math.exp(-dt*18);pos.x+=(px-pos.x)*k;pos.y+=(target.y-pos.y)*k;pos.z+=(pz-pos.z)*k;
   bodyYaw+=angleDelta(target.yaw,bodyYaw)*k;yaw=bodyYaw;pitch+=(target.pitch-pitch)*k;
   walkSeconds=target.walkSeconds;
   dreamTransition=target.transition;
-  whiteProgress=target.transition?clamp01(target.whiteProgress+Math.min(.25,(now-target.serverTime)/1000)*1000/WHITE_FADE_MS):0;
+  whiteProgress=target.scene>=2&&target.ruralOrigin?1:target.transition?clamp01(target.whiteProgress+Math.min(.25,(now-target.serverTime)/1000)*1000/WHITE_FADE_MS):0;
   ruralOrigin=target.ruralOrigin;
   ruralAge=target.ruralAge+Math.min(.25,(now-target.serverTime)/1000);
+  ruralReadyAge=target.ruralReadyAge;
   ruralExitAge=target.ruralExitAge;
-  ruralExitProgress=ruralExitAge===null?0:clamp01((ruralAge-ruralExitAge)/(WHITE_FADE_MS/1000));
+  ruralExitProgress=target.scene===3?1:ruralExitAge===null?0:clamp01((ruralAge-ruralExitAge)/(WHITE_FADE_MS/1000));
  }
  if(headLook){yaw=bodyYaw+headLook.yaw;pitch=headLook.pitch}
  // Visual 3 is not built yet. Hold on white after the synchronized exit fade.
@@ -494,9 +550,9 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
  }
  if(whiteProgress>=1&&ruralOrigin&&ruralScene){
   document.body.classList.toggle('transitioning',ruralExitAge!==null);
-  if(ruralRevealStarted===null)ruralRevealStarted=now;
-  // Slow asset loading must not skip the fade from white into the landscape.
-  const landscapeReveal=clamp01(Math.min(ruralAge,(now-ruralRevealStarted)/1000)/3.5);
+  // Every viewer uses the master's reveal clock. Late joins/late asset loads
+  // catch up immediately instead of replaying a separate local 3.5-second fade.
+  const landscapeReveal=clamp01((ruralAge-(ruralReadyAge??0))/3.5);
   try{
    ruralScene.render({x:pos.x-ruralOrigin.x,z:pos.z-ruralOrigin.z+12,yaw,pitch,
     time:ruralAge,reveal:landscapeReveal*(1-ruralExitProgress),vr,geometry:vrGeometry(),viewer:VIEWER,calib,
