@@ -29,7 +29,7 @@ const tree=JSON.parse(read('assets/rural/tree/tree-web.gltf'));
 for(const buffer of tree.buffers)buffer.uri=dataURL('assets/rural/tree/'+buffer.uri,'application/octet-stream');
 for(const image of tree.images)image.uri=dataURL('assets/rural/tree/'+image.uri,image.mimeType||'image/jpeg');
 const assets={
- jumpScare:dataURL('assets/rural/jump-scare.png','image/png'),
+ jumpScare:dataURL('assets/rural/jump-scare-clear.png','image/png'),
  groundColor:dataURL('assets/rural/ground-color.jpg','image/jpeg'),
  groundNormal:dataURL('assets/rural/ground-normal.jpg','image/jpeg'),
  treeJSON:JSON.stringify(tree),

@@ -16,6 +16,10 @@
     const openPalm=fingers.every(Boolean)&&[[5,6,8],[9,10,12],[13,14,16],[17,18,20]]
       .every(([,pip,t])=>distance(hand[t],hand[0])>distance(hand[pip],hand[0])*1.12);
     if(openPalm)return {command:'backward'};
+    const curlRatios=[[6,8],[10,12],[14,16],[18,20]].map(([p,t])=>distance(hand[t],hand[0])/(distance(hand[p],hand[0])||1));
+    if(fingers.every(f=>!f)&&curlRatios.every(r=>r<.95)&&distance(hand[4],hand[9])<palm*.95){
+      return {command:'fist',confidence:.75+.25*Math.min(1,(1-Math.max(...curlRatios))/.5)};
+    }
     if(!fingers[0]||fingers.slice(1).some(Boolean))return {command:'stop'};
     let command='stop';
     // Up is negative image Y. Use the visible pointing direction for forward,
@@ -23,42 +27,36 @@
     const palmImage=Math.hypot(hand[0].x-hand[9].x,hand[0].y-hand[9].y);
     if(-dy>palmImage*.48&&-dy>Math.abs(dx)*1.25)command='forward';
     else if(Math.abs(dx)>palm*.48&&Math.abs(dx)>Math.abs(dy)*1.25&&Math.abs(dx)>Math.abs(dz)*1.1)command=dx>0?'left':'right';
-    return {command,tip:{x:1-tip.x,y:tip.y*.75}};
+    const dominance=command==='forward'?(-dy-Math.abs(dx)*1.25)/palm:(Math.abs(dx)-Math.max(Math.abs(dy)*1.25,Math.abs(dz)*1.1))/palm;
+    return {command,confidence:command==='stop'?0:.6+.4*Math.min(1,Math.max(0,dominance)),tip:{x:1-tip.x,y:tip.y*.75}};
   }
   class NavigationGestures {
-    constructor(){this.command='stop';this.candidate='stop';this.since=0;this.lastSeen=-Infinity;this.path=[];this.cooldown=0;}
-    reset(){this.command='stop';this.candidate='stop';this.path=[];this.lastSeen=-Infinity;}
+    constructor(){this.command='stop';this.candidate='stop';this.selected='stop';this.since=0;this.lastSeen=-Infinity;this.fistSince=null;this.fistLatched=false;this.releaseSince=null;}
+    reset(){this.command='stop';this.candidate='stop';this.selected='stop';this.lastSeen=-Infinity;this.fistSince=null;}
     update(hands,now){
       this.lastSeen=now;
-      // One hand at a time prevents switching between two fingertips mid-circle.
-      if(hands.length!==1){this.reset();return {command:'stop',turn:0};}
-      const result=classify(hands[0]);let turn=0,moving=false;
-      if(result.tip&&now>=this.cooldown){
-        this.path.push({...result.tip,time:now});this.path=this.path.filter(p=>now-p.time<3000);
-        const recent=this.path.filter(p=>now-p.time<180);
-        if(recent.length>1)moving=Math.hypot(result.tip.x-recent[0].x,result.tip.y-recent[0].y)>.018;
-        const points=this.path;
-        if(points.length>=20&&now-points[0].time>650){
-          const cx=points.reduce((s,p)=>s+p.x,0)/points.length,cy=points.reduce((s,p)=>s+p.y,0)/points.length;
-          const radii=points.map(p=>Math.hypot(p.x-cx,p.y-cy)),radius=radii.reduce((s,r)=>s+r,0)/points.length;
-          const deviation=Math.sqrt(radii.reduce((s,r)=>s+(r-radius)**2,0)/points.length)/(radius||1);
-          let winding=0,total=0;
-          for(let i=1;i<points.length;i++){
-            const a=Math.atan2(points[i-1].y-cy,points[i-1].x-cx),b=Math.atan2(points[i].y-cy,points[i].x-cx);
-            const delta=Math.atan2(Math.sin(b-a),Math.cos(b-a));winding+=delta;total+=Math.abs(delta);
-          }
-          const closure=Math.hypot(points.at(-1).x-points[0].x,points.at(-1).y-points[0].y);
-          if(radius>.035&&deviation<.3&&Math.abs(winding)>5.5&&Math.abs(winding)/(total||1)>.85&&closure<radius*.65){
-            // Screen clockwise is a right turn; scene yaw decreases when turning right.
-            turn=-Math.sign(winding);this.cooldown=now+6500;this.path=[];
-          }
-        }
-      }else this.path=[];
-      const candidate=moving||turn?'stop':result.command;
+      const results=hands.map(classify),hasFist=results.some(r=>r.command==='fist');
+      if(hasFist)this.releaseSince=null;
+      else{
+        if(this.releaseSince===null)this.releaseSince=now;
+        if(now-this.releaseSince>=250)this.fistLatched=false;
+      }
+      // These are geometric pose scores, not handedness probabilities.
+      const recognized=results.filter(r=>r.command!=='stop').map(r=>({...r,confidence:r.confidence??.9})).sort((a,b)=>b.confidence-a.confidence);
+      // Keep the previous winner only in a near tie, avoiding hand-order flicker.
+      const best=recognized[0],previous=recognized.find(r=>r.command===this.selected);
+      const selected=(previous&&best&&best.confidence-previous.confidence<=.025?previous:best)?.command||'stop';
+      this.selected=selected;let turn=0;
+      if(selected==='fist'&&!this.fistLatched){
+        if(this.fistSince===null)this.fistSince=now;
+        if(now-this.fistSince>=450){turn=-1;this.fistLatched=true;this.fistSince=null;}
+      }else this.fistSince=null;
+      const candidate=selected==='fist'||turn?'stop':selected;
       if(candidate!==this.candidate){this.candidate=candidate;this.since=now;this.command='stop';}
       if(candidate==='stop'||now-this.since>=180)this.command=candidate;
-      return {command:this.command,turn};
+      return {command:this.command,turn,fistHeld:selected==='fist'};
     }
+    fistHeld(now){return now-this.lastSeen<=250&&this.selected==='fist';}
     current(now){if(now-this.lastSeen>250)this.reset();return this.command;}
   }
   globalThis.DreamGestures={classify,NavigationGestures};

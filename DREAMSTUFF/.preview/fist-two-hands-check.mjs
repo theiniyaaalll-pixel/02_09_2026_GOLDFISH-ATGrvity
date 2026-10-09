@@ -1,0 +1,23 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+import '../gesture-controls.js';
+const {classify,NavigationGestures}=globalThis.DreamGestures;
+const fixture=fs.readFileSync('.preview/gesture-check.mjs','utf8');
+const hand=vm.runInNewContext('('+fixture.slice(fixture.indexOf('function hand('),fixture.indexOf("for(const c of ['left'"))+')');
+const fist=()=>hand('stop');
+assert.equal(classify(fist()).command,'fist');
+for(const c of ['forward','left','right','backward'])assert.equal(classify(hand(c)).command,c);
+const g=new NavigationGestures();assert.equal(g.update([fist()],0).turn,0);assert.equal(g.update([fist()],449).turn,0);assert.equal(g.update([fist()],450).turn,-1);
+for(const t of [1000,7000,8000,15000])assert.equal(g.update([fist()],t).turn,0,'held fist must not repeat');
+g.update([hand('forward')],15100);g.update([hand('forward')],15400);g.update([fist()],15500);assert.equal(g.update([fist()],15950).turn,-1,'release rearms');
+const two=new NavigationGestures();two.update([hand('camera'),hand('forward')],0);assert.equal(two.update([hand('forward'),hand('camera')],200).command,'forward');
+two.update([hand('left'),hand('right')],300);assert.equal(two.update([hand('right'),hand('left')],500).command,'left','near tie keeps the winner despite hand-order changes');
+const weak=hand('left');const base=weak[5];for(const [i,f] of [[6,.4],[7,.7],[8,1]])weak[i]={x:base.x+.2*f,y:base.y-.14*f,z:base.z};
+assert.equal(classify(weak).command,'left');two.update([weak,hand('forward')],400);assert.equal(two.update([hand('forward'),weak],600).command,'forward');
+assert.equal(two.current(851),'stop');
+const both=new NavigationGestures();both.update([fist(),hand('camera')],0);assert.equal(both.update([hand('camera'),fist()],500).turn,-1);
+assert.equal(both.fistHeld(500),true);assert.equal(both.update([hand('forward')],550).fistHeld,false,'lowered fist stops with other hand still visible');assert.equal(both.fistHeld(550),false);
+both.update([hand('forward')],850);both.update([fist()],900);assert.equal(both.update([fist()],1350).turn,-1,'cancelled turns can be restarted after release');assert.equal(both.fistHeld(1601),false,'tracking loss stops a turn');
+const circle=new NavigationGestures();for(let i=0;i<70;i++){const h=hand('forward'),a=i/64*Math.PI*2;for(const p of h){p.x+=Math.cos(a)*.12;p.y+=Math.sin(a)*.12;}assert.equal(circle.update([h],i*30).turn,0,'circle no longer triggers');}
+const source=fs.readFileSync('index.html','utf8');new Function(source.match(/<script>([\s\S]*?)<\/script>/)[1]);
+assert.match(source,/FIRST_SCENE_MS=150000/);assert.ok(source.includes('if(gestureTurn&&!result.fistHeld)gestureTurn=null;'));assert.ok(source.includes('if(gestureTurn&&!navigationGestures.fistHeld(now))gestureTurn=null;'));
+console.log('Passed: poses, fist dwell, hold latch, release/repeat, two-hand confidence selection, stable ties, lower-fist cancellation, restart, tracking loss, circle disabled, 150-second timer, application syntax.');

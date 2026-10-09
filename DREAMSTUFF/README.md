@@ -1,6 +1,6 @@
 # Liminal VR synchronized v8
 
-A laptop controls a freely explorable underwater bridge with reflective water and a distant white light sphere. Reaching the sphere, or spending two minutes in the first visual, starts a white fade into a warm rural landscape with grass, shallow ponds, trees and translucent cellular materials. The phone mirrors the scene in calibrated Cardboard stereo with head tracking.
+A laptop controls a freely explorable underwater bridge with reflective water and a distant white light sphere. Reaching the sphere, or spending two and a half minutes in the first visual, starts a white fade into a warm rural landscape with grass, shallow ponds, trees and translucent cellular materials. The phone mirrors the scene in calibrated Cardboard stereo with head tracking.
 
 ## Flow
 
@@ -44,7 +44,7 @@ URL modes: `?mode=controller` (default), `?mode=headset&room=<code>`, `?mode=sol
 
 ## Automatic visual transition
 
-Visual 2 preloads and prepares its shaders while visual 1 is running. The same page fades to white and then reveals the landscape automatically; no second link or page navigation is required. Both the two-minute timeout and reaching the light use this sequence. Visual 2 then fades to white on reaching its own light or after two minutes, and automatically reveals visual 3. The master publishes the street origin and reveal clock, so the phone follows the same transition.
+Visual 2 preloads and prepares its shaders while visual 1 is running. The same page fades to white and then reveals the landscape automatically; no second link or page navigation is required. Both the two-and-a-half-minute timeout and reaching the light use this sequence. Visual 2 then fades to white on reaching its own light or after two minutes, and automatically reveals visual 3. The master publishes the street origin and reveal clock, so the phone follows the same transition.
 
 The packaged landscape also runs when `index.html?mode=solo` is opened directly as a file. Laptop/phone testing should use the deployed HTTPS site as before. The `?mode=solo&scene=2` link is only an optional direct preview, not part of the normal sequence.
 

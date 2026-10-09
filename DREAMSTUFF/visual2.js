@@ -537,9 +537,11 @@ export function createRuralScene({assets=null}={}) {
   const jumpScareReady=new Promise((resolve,reject)=>{
     jumpScareTexture=textureLoader.load(assets.jumpScare,resolve,undefined,reject);
     jumpScareTexture.colorSpace=THREE.SRGBColorSpace;
+    jumpScareTexture.generateMipmaps=false;
+    jumpScareTexture.minFilter=THREE.LinearFilter;jumpScareTexture.magFilter=THREE.LinearFilter;
   });
   const postUniforms={
-    jumpScare:{value:jumpScareTexture},scareOn:{value:0},eyeAspect:{value:1},
+    jumpScare:{value:jumpScareTexture},scareOn:{value:0},scareAge:{value:0},photoAspect:{value:1},eyeAspect:{value:1},
     image:{value:target.texture},resolution:{value:new THREE.Vector2()},imageSize:{value:new THREE.Vector2()},
     lensL:{value:new THREE.Vector2()},lensR:{value:new THREE.Vector2()},
     pxPerM:{value:1},screenLens:{value:.039},kd:{value:new THREE.Vector2()},
@@ -548,7 +550,7 @@ export function createRuralScene({assets=null}={}) {
   const postMaterial=new THREE.ShaderMaterial({
     depthTest:false,depthWrite:false,toneMapped:false,uniforms:postUniforms,
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
-    fragmentShader:`varying vec2 vUv;uniform sampler2D image,jumpScare;uniform float scareOn,eyeAspect;uniform vec2 resolution,imageSize,lensL,lensR,kd;
+    fragmentShader:`varying vec2 vUv;uniform sampler2D image,jumpScare;uniform float scareOn,scareAge,photoAspect,eyeAspect;uniform vec2 resolution,imageSize,lensL,lensR,kd;
       uniform float pxPerM,screenLens,fovTan,stereo,crossOn,reveal;
       void main(){vec2 sampleUV=vUv;vec2 uv=vec2(0.);
        if(stereo>.5){
@@ -570,10 +572,18 @@ export function createRuralScene({assets=null}={}) {
         // Use the already calibrated eye coordinates, never a DOM overlay.
         vec2 photoUV=sampleUV;
         if(stereo>.5)photoUV.x=fract(photoUV.x*2.);
-        vec2 fit=vec2(max(eyeAspect/2.,1.),max(2./eyeAspect,1.));
-        photoUV=(photoUV-.5)*fit+.5;
-        color=vec3(0.);
-        if(all(greaterThanEqual(photoUV,vec2(0.)))&&all(lessThanEqual(photoUV,vec2(1.))))color=texture2D(jumpScare,photoUV).rgb;
+        vec2 fit=vec2(max(eyeAspect/photoAspect,1.),max(photoAspect/eyeAspect,1.));
+        float rush=clamp(scareAge/.55,0.,1.);
+        float zoom=mix(.14,1.18,rush*rush*rush);
+        float settle=max(0.,scareAge-.55);
+        zoom+=sin(settle*11.)*.045*exp(-settle*5.);
+        vec2 drift=vec2(sin(settle*2.1),cos(settle*1.7))*.0025*rush;
+        photoUV=(photoUV-.5-drift)*fit/zoom+.5;
+        if(stereo>.5)photoUV.x+=(step(.5,sampleUV.x)*2.-1.)*.008*rush;
+        vec3 face=vec3(0.);
+        if(all(greaterThanEqual(photoUV,vec2(0.)))&&all(lessThanEqual(photoUV,vec2(1.))))face=texture2D(jumpScare,photoUV).rgb;
+        float silhouette=smoothstep(.008,.045,max(face.r,max(face.g,face.b)));
+        color=mix(color*(1.-smoothstep(0.,.18,scareAge)),face,silhouette);
        }
        if(stereo>.5&&crossOn>.5){vec2 gd=abs(fract(uv*4.+.5)-.5)/4.;
         float a=step(min(gd.x,gd.y),.0035)+step(min(abs(uv.x),abs(uv.y)),.008);
@@ -605,6 +615,8 @@ export function createRuralScene({assets=null}={}) {
     clock.value=time;
     renderer.shadowMap.needsUpdate=true;
     postUniforms.scareOn.value=sceneAge>=10&&sceneAge<13?1:0;
+    postUniforms.scareAge.value=Math.max(0,sceneAge-10);
+    if(jumpScareTexture.image)postUniforms.photoAspect.value=jumpScareTexture.image.width/jumpScareTexture.image.height;
     postUniforms.eyeAspect.value=vr?1:w/h;
     dog.update(time);
     const glowPulse=1+.055*Math.sin(time*1.8);

@@ -24,11 +24,12 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020305;col
 .calib{position:fixed;inset:0;z-index:12;background:#020305;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;box-sizing:border-box;text-align:center;font-size:13px}.calib[hidden]{display:none}.calib p{margin:0;max-width:520px;opacity:.8}.card{border:2px solid #0f9;border-radius:10px;box-sizing:border-box;background:#00ff9910}.calib input{width:min(520px,90vw)}.calib .row{display:flex;gap:10px}.calib button{background:#eee;color:#111;border:0;border-radius:10px;padding:10px 16px;font-weight:700}.calib button.ghost{background:transparent;color:#eee;border:1px solid #ffffff55}
 .vtoast{display:none;position:fixed;top:22%;transform:translateX(-50%);z-index:8;background:#000d;color:#0f9;border:1px solid #0f96;border-radius:8px;padding:6px 10px;font-size:12px;white-space:nowrap;pointer-events:none}.vtoast.show{display:block}
 </style>
-<script src="./visual2.bundle.js?v=native-vr-20261009" defer></script>
+<script src="./visual2.bundle.js?v=street-flight-20261009" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body><canvas id="c"></canvas><div class="cam" id="cam"><video id="webcam" autoplay playsinline muted></video><div class="camstat" id="camstat">Camera starting…</div></div><div class="reticle" id="reticle" aria-hidden="true"></div><div class="ui" id="ui"><b id="title">LIMINAL WALK</b><div class="hint" id="hint">WASD / arrows move · S / ↓ back · mouse look</div><div id="status" style="margin-top:5px;opacity:.72">Connecting…</div><button id="motion" style="display:none">ENABLE HEAD TRACKING</button><button id="vr">CARDBOARD VIEW</button></div><div class="touch"><button data-k="a">←</button><button data-k="w">↑</button><button data-k="s">↓</button><button data-k="d">→</button></div><div class="qr" id="qr"><div class="qrhead"><b>JOIN WITH A PHONE</b><button id="qrtoggle">Hide</button></div><div class="qrbody"><div class="qrcode" id="qrcode">Creating room…</div><div class="qrtext" id="qrtext">Scan with the phone camera, tap “Enter VR”, then place the phone in the Cardboard headset.</div><a id="qrlink" target="_blank" rel="noopener"></a></div></div><div class="enter" id="enter"><div><b>LIMINAL WALK · HEADSET</b><p id="enterstatus">Connecting to laptop…</p><div class="install" id="install" hidden><p><b>Full screen on iPhone needs a one-time step.</b> Safari doesn’t let web pages hide its bars.</p><ol><li>Tap <b>Share</b> in Safari’s toolbar</li><li>Tap <b>Add to Home Screen</b> (keep “Open as Web App” on)</li><li>Open <b>Liminal VR</b> from your Home Screen</li></ol><p class="small">The icon reconnects to this laptop next time.</p><button class="ghost" id="safaribtn">Continue in Safari anyway</button></div><button id="enterbtn">TAP TO ENTER VR</button><p class="small">Turn the phone sideways and place it in the Cardboard headset. The laptop controls the walk.</p><p class="small"><a href="#" id="roomlink">Laptop showing a different room code?</a> · <a href="#" id="caliblink">Calibrate screen size</a></p><p class="small" id="calibstate"></p></div></div><div class="calib" id="calib" hidden><b>SCREEN SIZE</b><p id="calibmsg">Turn the phone sideways. Hold a standard bank/ID card (85.6 mm wide) against the screen and drag the slider until the green box is exactly as wide as the card.</p><div class="card" id="card"></div><input type="range" id="cardw" min="250" max="1100" step="1"><div class="row"><button id="calibsave">SAVE</button><button class="ghost" id="calibreset">Reset</button><button class="ghost" id="calibcancel">Cancel</button></div></div><div class="vtoast" id="toastL"></div><div class="vtoast" id="toastR"></div><div class="banner" id="banner">Connection lost · reconnecting…</div>
-<script src="./gesture-controls.js"></script>
+<script src="./gesture-controls.js?v=hold-fist-20261009"></script>
+<script src="./street-flight.js?v=drone-20261009"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script>
 const canvas=document.getElementById('c'),gl=canvas.getContext('webgl',{antialias:false,alpha:false});
@@ -257,7 +258,7 @@ function vrGeometry(){
 const params=new URLSearchParams(location.search), role=params.get('mode')||'controller';
 const status=document.getElementById('status'), motionBtn=document.getElementById('motion'), vrBtn=document.getElementById('vr');
 if(role==='headset'){vr=true;document.body.classList.add('vr','headset');document.getElementById('title').textContent='CARDBOARD HEADSET';document.getElementById('hint').textContent='Turn your head to reveal portals · W/S walk';vrBtn.style.display='none';motionBtn.style.display='none';document.querySelector('.touch').style.display='none';}
-if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').textContent='MASTER SIMULATION';document.getElementById('hint').innerHTML='Point left/right = sidestep | index up = forward<br>Open palm = backward | index circle = full turn';vrBtn.style.display='none';}
+if(role==='controller'){document.body.classList.add('controller');document.getElementById('title').innerHTML='MASTER SIMULATION';document.getElementById('hint').innerHTML='Point left/right = sidestep | index up = forward<br>Open palm = backward | closed fist = full turn';vrBtn.style.display='none';}
 function normalizedKey(e){const k=e.key.toLowerCase();return ({arrowup:'w',arrowdown:'s',arrowleft:'a',arrowright:'d'})[k]||k}
 addEventListener('keydown',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=true}});
 addEventListener('keyup',e=>{const k=normalizedKey(e);if(['w','a','s','d','shift'].includes(k)){e.preventDefault();keys[k]=false}});
@@ -271,7 +272,7 @@ if(role!=='headset'){canvas.addEventListener('click',()=>canvas.requestPointerLo
 vrBtn.onclick=()=>{vr=!vr;document.body.classList.toggle('vr',vr);vrBtn.textContent=vr?'NORMAL VIEW':'CARDBOARD VIEW'};
 let synced=false,lastSeq=-1,walkSeconds=0,dreamTransition=false,routeHeading=yaw,routeFolded=false,foldLevel=0,swallowStarted=-1,attackLevel=0,fadeLevel=0,headTrackingEnabled=false,headsetConn=null,publishHeadLook=()=>{},headOrientationBase=null,lastHeadSend=0;
 // The master owns scene timing; the headset receives the same fade progress.
-const FIRST_SCENE_MS=120000,WHITE_FADE_MS=2000;
+const FIRST_SCENE_MS=150000,WHITE_FADE_MS=2000;
 // Optional solo preview; normal controller/headset timing stays at two minutes.
 const firstSceneStarted=performance.now()-(role==='solo'&&['2','3'].includes(params.get('scene'))?FIRST_SCENE_MS+WHITE_FADE_MS+3500:0);
 let whiteFadeStarted=null,whiteProgress=0;
@@ -280,6 +281,7 @@ const RURAL_DURATION_SECONDS=120;
 let ruralReadyAge=null,ruralExitAge=null,ruralExitProgress=0;
 let ruralLoadError=null;
 let streetScene=null,streetOrigin=null,streetStartedAge=null,streetAge=0,streetLoadError=null;
+let flightDistance=0,flightLateral=0,flightHeading=null;
 function ruralSceneFailed(error){
  ruralLoadError=error;
  ruralScene?.hide();ruralScene=null;
@@ -481,7 +483,7 @@ if(role==='headset'){
    // Some networks silently block WebRTC; don't wait forever for a link that never opens.
    openTimer=setTimeout(()=>{if(c===conn&&!c.open){setLink('Still connecting… if this persists, try another network (e.g. mobile data).',false);try{c.close()}catch{};schedule(500)}},12000);
    c.on('open',()=>{if(c!==conn)return;clearTimeout(openTimer);lastSeq=-1;lastData=performance.now();setLink('Connected to laptop',true)});
-   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.walkSeconds=Number.isFinite(x.walkSeconds)?x.walkSeconds:0;target.transition=!!x.transition;target.whiteProgress=Number.isFinite(x.whiteProgress)?clamp01(x.whiteProgress):0;target.ruralOrigin=x.ruralOrigin&&Number.isFinite(x.ruralOrigin.x)&&Number.isFinite(x.ruralOrigin.z)?x.ruralOrigin:null;target.ruralAge=Number.isFinite(x.ruralAge)?Math.max(0,x.ruralAge):0;target.scene=[1,2,3].includes(x.scene)?x.scene:(target.ruralOrigin?2:1);target.ruralReadyAge=Number.isFinite(x.ruralReadyAge)?Math.max(0,x.ruralReadyAge):null;target.ruralExitAge=Number.isFinite(x.ruralExitAge)?Math.max(0,x.ruralExitAge):null;target.streetOrigin=x.streetOrigin&&Number.isFinite(x.streetOrigin.x)&&Number.isFinite(x.streetOrigin.z)?x.streetOrigin:null;target.streetStartedAge=Number.isFinite(x.streetStartedAge)?Math.max(0,x.streetStartedAge):null;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
+   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.vy=Number.isFinite(x.vy)?x.vy:0;target.walkSeconds=Number.isFinite(x.walkSeconds)?x.walkSeconds:0;target.transition=!!x.transition;target.whiteProgress=Number.isFinite(x.whiteProgress)?clamp01(x.whiteProgress):0;target.ruralOrigin=x.ruralOrigin&&Number.isFinite(x.ruralOrigin.x)&&Number.isFinite(x.ruralOrigin.z)?x.ruralOrigin:null;target.ruralAge=Number.isFinite(x.ruralAge)?Math.max(0,x.ruralAge):0;target.scene=[1,2,3].includes(x.scene)?x.scene:(target.ruralOrigin?2:1);target.ruralReadyAge=Number.isFinite(x.ruralReadyAge)?Math.max(0,x.ruralReadyAge):null;target.ruralExitAge=Number.isFinite(x.ruralExitAge)?Math.max(0,x.ruralExitAge):null;target.streetOrigin=x.streetOrigin&&Number.isFinite(x.streetOrigin.x)&&Number.isFinite(x.streetOrigin.z)?x.streetOrigin:null;target.streetStartedAge=Number.isFinite(x.streetStartedAge)?Math.max(0,x.streetStartedAge):null;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
    c.on('close',()=>{if(c!==conn)return;synced=false;setLink('Connection lost · reconnecting…',false);schedule()});
   }
   // The laptop streams state ~30x/s even when standing still, so silence means the link is dead.
@@ -514,27 +516,29 @@ async function startHands(){if(role!=='controller')return;
   hands.onResults(r=>{
    detectedHands=(r.multiHandLandmarks||[]).length;
    const now=performance.now(),result=navigationGestures.update(r.multiHandLandmarks||[],now);
+   if(gestureTurn&&!result.fistHeld)gestureTurn=null;
    if(result.turn&&!gestureTurn)gestureTurn={started:now,previous:0,direction:result.turn};
-   camstat.textContent=gestureTurn?'Turning full circle':detectedHands>1?'Use one hand at a time':('Gesture: '+result.command);
+   camstat.textContent=gestureTurn?'Turning · lower fist to stop':('Gesture: '+result.command);
   });
-  const cam=new Camera(video,{onFrame:async()=>{await hands.send({image:video})},width:640,height:480});await cam.start();camstat.textContent='Show one hand to navigate';
+  const cam=new Camera(video,{onFrame:async()=>{await hands.send({image:video})},width:640,height:480});await cam.start();camstat.textContent='Show your hands to navigate';
  }catch(e){camstat.textContent='Camera unavailable · allow webcam permission';}
 }
 startHands();
 let walkVelocity=0,lastPost=0,sendSeq=0,lastPublishedScene=1;
-function publish(now,moving,source,vx=0,vz=0){
+function publish(now,moving,source,vx=0,vz=0,vy=0){
  const scene=ruralExitProgress>=1?3:ruralOrigin?2:1;
  // Send scene changes on the next frame, bypassing the normal pose throttle.
  if(role!=='controller'||!conns.size||(scene===lastPublishedScene&&now-lastPost<32))return;
  lastPost=now;lastPublishedScene=scene;
- const msg={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,walkSeconds,scene,transition:dreamTransition,whiteProgress,ruralOrigin,ruralAge,ruralReadyAge,ruralExitAge,streetOrigin,streetStartedAge,moving,source,seq:++sendSeq};
+ const msg={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,vy,walkSeconds,scene,transition:dreamTransition,whiteProgress,ruralOrigin,ruralAge,ruralReadyAge,ruralExitAge,streetOrigin,streetStartedAge,moving,source,seq:++sendSeq};
  for(const c of conns)if(c.open)try{c.send(msg)}catch{}
 }
 if(role==='controller'&&!conns.size)status.textContent='MASTER · creating room…';
 if(role==='solo')status.textContent='Solo mode';
 function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
  if(role!=='headset'){
-  const startX=pos.x,startZ=pos.z;
+ const startX=pos.x,startY=pos.y,startZ=pos.z;
+  if(gestureTurn&&!navigationGestures.fistHeld(now))gestureTurn=null;
   if(gestureTurn){
    const progress=Math.min(1,(now-gestureTurn.started)/6000),smooth=progress*progress*(3-2*progress);
    const delta=(smooth-gestureTurn.previous)*Math.PI*2*gestureTurn.direction;
@@ -543,20 +547,28 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   }
   const gesture=gestureTurn?'stop':navigationGestures.current(now);
   const forward=!!keys.w||gesture==='forward',back=!!keys.s||gesture==='backward',left=!!keys.a||gesture==='left',right=!!keys.d||gesture==='right',fast=!!keys.shift;
-  let target=forward?(fast?10:8.1):0;walkVelocity+=(target-walkVelocity)*Math.min(1,dt*5);if(back)walkVelocity=-8.1;
+  let target=forward?(fast?10:8.1):0;if(streetOrigin&&back)target=-8.1;walkVelocity+=(target-walkVelocity)*Math.min(1,dt*5);if(back&&!streetOrigin)walkVelocity=-8.1;
   if(walkVelocity>0)walkSeconds+=walkVelocity*dt/8.1;
   else if(walkVelocity<0)walkSeconds+=walkVelocity*dt/8.1;
-  let fx=Math.sin(yaw),fz=Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);pos.x+=fx*walkVelocity*dt;pos.z+=fz*walkVelocity*dt;let side=3*dt*(ruralOrigin?-1:1);if(left){pos.x-=rx*side;pos.z-=rz*side}if(right){pos.x+=rx*side;pos.z+=rz*side}
+  if(streetOrigin){
+   flightDistance+=walkVelocity*dt;
+   const requestedOffset=left?-1.1:right?1.1:0;flightLateral+=(requestedOffset-flightLateral)*(1-Math.exp(-dt*2));
+   const flight=DreamStreetFlight.sample(flightDistance,flightLateral);
+   if(flightHeading!==null){const turn=angleDelta(flight.yaw,flightHeading);yaw+=turn;bodyYaw+=turn;}
+   flightHeading=flight.yaw;pos.x=streetOrigin.x+flight.x;pos.y=flight.y;pos.z=streetOrigin.z+flight.z-12;
+  }else{
+   let fx=Math.sin(yaw),fz=Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);pos.x+=fx*walkVelocity*dt;pos.z+=fz*walkVelocity*dt;let side=3*dt*(ruralOrigin?-1:1);if(left){pos.x-=rx*side;pos.z-=rz*side}if(right){pos.x+=rx*side;pos.z+=rz*side}
+  }
   advanceWhiteScene(now);
   advanceRuralExit();
   advanceStreetScene();
-  publish(now,Math.hypot(pos.x-startX,pos.z-startZ)>.0001,gesture!=='stop'||gestureTurn?'gesture':'keyboard',dt>0?(pos.x-startX)/dt:0,dt>0?(pos.z-startZ)/dt:0);
+  publish(now,Math.hypot(pos.x-startX,pos.y-startY,pos.z-startZ)>.0001,gesture!=='stop'||gestureTurn?'gesture':'keyboard',dt>0?(pos.x-startX)/dt:0,dt>0?(pos.z-startZ)/dt:0,dt>0?(pos.y-startY)/dt:0);
  } else if(synced){
   // Predict between network packets, then gently correct to the laptop's authoritative pose.
   const age=Math.min(.12,(performance.now()-target.serverTime)/1000);
-  const px=target.x+target.vx*age,pz=target.z+target.vz*age;
+  const px=target.x+target.vx*age,py=target.y+(target.vy||0)*age,pz=target.z+target.vz*age;
   const enteringLandscape=(!!target.ruralOrigin&&!ruralOrigin)||(!!target.streetOrigin&&!streetOrigin);
-  const k=enteringLandscape?1:1-Math.exp(-dt*18);pos.x+=(px-pos.x)*k;pos.y+=(target.y-pos.y)*k;pos.z+=(pz-pos.z)*k;
+  const k=enteringLandscape?1:1-Math.exp(-dt*18);pos.x+=(px-pos.x)*k;pos.y+=(py-pos.y)*k;pos.z+=(pz-pos.z)*k;
   bodyYaw+=angleDelta(target.yaw,bodyYaw)*k;yaw=bodyYaw;pitch+=(target.pitch-pitch)*k;
   walkSeconds=target.walkSeconds;
   dreamTransition=target.transition;
@@ -574,7 +586,7 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   useLandscapeResolution();
   document.body.classList.remove('transitioning');
   try{
-   streetScene.render({x:pos.x-streetOrigin.x,z:pos.z-streetOrigin.z+12,yaw,pitch,
+   streetScene.render({x:pos.x-streetOrigin.x,y:pos.y,z:pos.z-streetOrigin.z+12,yaw,pitch,
     time:streetAge,reveal:clamp01(streetAge/3.5),vr,geometry:vrGeometry(),viewer:VIEWER,calib,
     w:canvas.width,h:canvas.height});
    requestAnimationFrame(loop);return;
@@ -602,3 +614,4 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
  document.body.classList.toggle('transitioning',whiteProgress>=1&&!ruralLoadError);
  gl.uniform2f(ur,canvas.width,canvas.height);gl.uniform1f(ut,now/1000);gl.uniform3f(uc,pos.x,pos.y,pos.z);gl.uniform2f(urot,yaw,pitch);gl.uniform1f(uvr,vr?1:0);const g=vrGeometry();gl.uniform1f(ue,g.eyeHalf);gl.uniform2f(uLensL,g.lx,g.ly);gl.uniform2f(uLensR,g.rx,g.ly);gl.uniform1f(uPxPerM,g.pxPerM);gl.uniform1f(uScreenLens,VIEWER.screenLensMm/1000);gl.uniform2f(uKd,VIEWER.k[0]*calib.kScale,VIEWER.k[1]*calib.kScale);gl.uniform1f(uFovTan,Math.tan(VIEWER.fovDeg*Math.PI/180));gl.uniform1f(uCross,calib.cross?1:0);gl.uniform1f(uTransition,whiteProgress);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(loop)}requestAnimationFrame(loop);
 </script></body></html>
+

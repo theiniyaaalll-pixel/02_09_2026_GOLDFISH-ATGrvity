@@ -8,7 +8,7 @@ export function createStreetScene({rural,assets}) {
   const renderer=rural.renderer,canvas=renderer.domElement;
   const mobile=typeof matchMedia==='function'&&matchMedia('(pointer:coarse)').matches;
   const scene=new THREE.Scene();scene.name='Visual 3 — evening neighborhood';
-  scene.background=new THREE.Color('#bb836b');scene.fog=new THREE.FogExp2('#bc8972',.009);
+  scene.background=new THREE.Color('#a18486');scene.fog=new THREE.FogExp2('#a196a2',.011);
   const timeUniform={value:0},random=seed=>{let s=seed;return()=>((s=Math.imul(s,1664525)+1013904223)>>>0)/4294967296;};
   const rng=random(731),staticBatches=new Map(),moving=[],residents=[];
   // World-space pockets of low mist on both sides, visible from every heading.
@@ -79,8 +79,8 @@ export function createStreetScene({rural,assets}) {
   const plasterColors=['#c3b09a','#929e94','#a6aa94','#c1aa8c','#aa998d','#a4a4a0'];
   const plaster=plasterColors.map(color=>new THREE.MeshStandardMaterial({color,map:plasterMap,normalMap:plasterNormal,normalScale:new THREE.Vector2(.32,.32),roughnessMap:plasterRough,roughness:.93}));
   const glass=new THREE.MeshPhysicalMaterial({color:'#817b68',roughness:.22,metalness:.05,transparent:true,opacity:.28,depthWrite:false});
-  scene.add(new THREE.HemisphereLight('#e2bcb0','#55514a',1.25));
-  const sun=new THREE.DirectionalLight('#ffc18c',2.1);sun.position.set(-28,16,-80);sun.castShadow=true;
+  scene.add(new THREE.HemisphereLight('#bdc6da','#55514a',.95));
+  const sun=new THREE.DirectionalLight('#ffc18c',1.55);sun.position.set(-28,16,-80);sun.castShadow=true;
   sun.shadow.mapSize.set(1536,1536);Object.assign(sun.shadow.camera,{left:-28,right:28,top:38,bottom:-38,near:1,far:180});
   sun.shadow.bias=-.0003;sun.shadow.normalBias=.035;scene.add(sun);scene.add(sun.target);
   const sky=new THREE.Mesh(new THREE.SphereGeometry(280,40,24),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,
@@ -128,6 +128,21 @@ export function createStreetScene({rural,assets}) {
     return new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshStandardMaterial({map,roughness:.9}));
   }
   const shopNames=[['किराना','GENERAL STORE'],['चाय · नाश्ता','CHAI & SNACKS'],['दर्जी','TAILOR'],['जनरल स्टोर','DAILY NEEDS'],['साइकिल','CYCLE REPAIRS'],['फल · सब्ज़ी','FRESH PRODUCE']];
+  const luminousSigns=[];
+  const warmWindow=new THREE.MeshStandardMaterial({color:'#777568',emissive:'#c6a575',emissiveIntensity:.35,roughness:.8});
+  const signPalette=['#70dbdf','#ee7158','#a6cdda','#e9c478'];
+  function lightbox(text,subtext,width,height,color,position,rotation){
+    const board=sign(text,subtext,width,height,'#26363e');
+    board.position.set(...position);board.rotation.y=rotation;
+    board.material.emissive.set(color);board.material.emissiveMap=board.material.map;board.material.emissiveIntensity=1.85;
+    board.material.side=THREE.DoubleSide;scene.add(board);
+    const frame=new THREE.Mesh(new THREE.BoxGeometry(width+.12,height+.12,.14),metal);
+    frame.position.copy(board.position);frame.quaternion.copy(board.quaternion);
+    frame.translateZ(-.09);scene.add(frame);
+    const reverse=board.clone();reverse.rotation.y+=Math.PI;reverse.translateZ(.19);scene.add(reverse);
+    luminousSigns.push({material:board.material,phase:luminousSigns.length*1.37});
+    return board;
+  }
   for(const side of [-1,1])for(let row=-2;row<8;row++){
     const z=14-row*15.8,height=4.8+rng()*3.4,width=12.3+rng()*2.5,wall=plaster[Math.floor(rng()*plaster.length)],front=side*5.9;
     box([side*9.7,height*.5,z],[7.4,height,width],wall);box([side*9.7,height+.12,z],[7.85,.24,width+.45],roof);
@@ -154,6 +169,25 @@ export function createStreetScene({rural,assets}) {
       board.position.set(front-side*.18,3.2,z);board.rotation.y=side===1?-Math.PI/2:Math.PI/2;scene.add(board);
       box([front-side*.68,2.76,z],[1.5,.08,7.1],cloth,[0,0,side*.12]);
       for(const offset of [-3.3,3.3])rod([front-side*1.25,.15,z+offset],[front-side*1.25,2.72,z+offset],.025,rust);
+      // Older illuminated signs and projecting boards accumulate across the street.
+      lightbox(title,subtitle,2.8,.68,signPalette[(row+(side>0?1:0))%4],[front-side*.28,4.95,z-2.9],side===1?-Math.PI/2:Math.PI/2);
+      const projectingX=front-side*1.05,signZ=z+4.9;
+      rod([front,4.3,signZ],[projectingX,4.3,signZ],.028,metal);
+      lightbox(title,subtitle,1.25,1.6,signPalette[(row+2)%4],[projectingX,3.85,signZ],row%2?Math.PI:0);
+      if(row<2){
+        const spill=new THREE.PointLight(signPalette[(row+(side>0?1:0))%4],12,11,2);
+        spill.position.set(front-side*.85,3.1,z-2.9);scene.add(spill);
+      }
+    }
+    if(row>=0&&row<6){
+      const upperHeight=2.6+rng()*1.8;
+      box([side*10,height+upperHeight*.5,z+1],[6.4,upperHeight,width*.72],plaster[(row+2)%plaster.length]);
+      box([side*6.55,height+.65,z+1],[.95,.15,width*.65],concrete);
+      for(let n=-2;n<=2;n++){
+        box([side*6.76,height+1.55,z+1+n*1.7],[.12,1.1,.8],dark);
+        if((n+row)%2===0)box([side*6.68,height+1.55,z+1+n*1.7],[.025,.83,.58],warmWindow);
+      }
+      rod([side*6.05,height+.9,z-width*.3],[side*6.05,height+.9,z+width*.3],.025,metal);
     }
     // Exposed drainpipes, meter boxes, roof tanks and imperfect masonry.
     rod([front-side*.18,.2,z+width*.45],[front-side*.18,height+.3,z+width*.45],.055,rust);
@@ -161,6 +195,16 @@ export function createStreetScene({rural,assets}) {
     staticGeometry(new THREE.CylinderGeometry(.62,.62,1.15,20),dark,[side*10,height+.8,z-2]);
     for(let brick=0;brick<7;brick++)box([front-side*.12,.25+rng()*.65,z-5+rng()*10],[.04,.14,.4+rng()*.4],roof);
   }
+  // Sparse, world-space light fragments: a suggestion of suspended city memories.
+  const fragmentCount=1100,fragmentPositions=[],fragmentPhases=[];
+  for(let i=0;i<fragmentCount;i++){
+    fragmentPositions.push((rng()-.5)*10,.5+rng()*11,38-rng()*165);fragmentPhases.push(rng()*Math.PI*2);
+  }
+  const fragmentGeometry=new THREE.BufferGeometry();fragmentGeometry.setAttribute('position',new THREE.Float32BufferAttribute(fragmentPositions,3));fragmentGeometry.setAttribute('phase',new THREE.Float32BufferAttribute(fragmentPhases,1));
+  const fragmentMaterial=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+    uniforms:{streetTime:timeUniform},vertexShader:`attribute float phase;uniform float streetTime;varying float glow;void main(){vec3 p=position;p.x+=sin(streetTime*.07+phase)*.28;p.y+=sin(streetTime*.09+phase)*.22;vec4 view=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*view;gl_PointSize=clamp(18./max(1.,-view.z),1.,2.5);glow=.12+.14*(.5+.5*sin(streetTime*.21+phase));}`,
+    fragmentShader:'varying float glow;void main(){float soft=1.-smoothstep(.1,.5,length(gl_PointCoord-.5));gl_FragColor=vec4(.55,.75,.88,soft*glow);}',
+  });scene.add(new THREE.Points(fragmentGeometry,fragmentMaterial));
   // Light fixtures have physical geometry, restrained halos and local light spill.
   const haloCanvas=document.createElement('canvas');haloCanvas.width=128;haloCanvas.height=128;
   const hc=haloCanvas.getContext('2d'),gradient=hc.createRadialGradient(64,64,0,64,64,64);
@@ -401,6 +445,7 @@ export function createStreetScene({rural,assets}) {
   function render(view){
     renderer.shadowMap.needsUpdate=true;
     const {x,z,time,reveal,w,h}=view;canvas.style.display='block';timeUniform.value=time;updatePeople(time);
+    for(const sign of luminousSigns)sign.material.emissiveIntensity=1.85+.12*Math.sin(time*.33+sign.phase)+.04*Math.sin(time*.91+sign.phase);
     fireLight.intensity=8.5+Math.sin(time*8.7)*.65+Math.sin(time*13.1)*.4;
     presenter.setView(view);const camera=presenter.camera;sky.position.copy(camera.position);
     smoke.forEach((puff,i)=>{const age=((time*.042+i/smoke.length)%1+1)%1;const height=.8+age*9;const spread=.4+age*2.6;
@@ -434,6 +479,10 @@ function createStreetPresenter(renderer,scene,mobile){
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
     fragmentShader:`varying vec2 vUv;uniform sampler2D image;uniform vec2 resolution,imageSize,lensL,lensR,kd;
       uniform float pxPerM,screenLens,fovTan,stereo,crossOn,reveal,streetTime;
+      vec3 glowTap(vec2 uv,vec2 offset){vec2 p=uv+offset;
+        if(stereo>.5){float eye=step(.5,uv.x);p.x=clamp(p.x,eye*.5+.5/imageSize.x,(eye+1.)*.5-.5/imageSize.x);}
+        p.y=clamp(p.y,.5/imageSize.y,1.-.5/imageSize.y);
+        return max(texture2D(image,p).rgb-vec3(1.),vec3(0.));}
       void main(){vec2 sampleUV=vUv;vec2 uv=vec2(0.);
       if(stereo>.5){vec2 fc=gl_FragCoord.xy;float side=step(resolution.x*.5,fc.x);vec2 lens=mix(lensL,lensR,side);
       vec2 tn=(fc-lens)/(pxPerM*screenLens);float r2=dot(tn,tn);uv=tn*(1.+kd.x*r2+kd.y*r2*r2);
@@ -441,17 +490,19 @@ function createStreetPresenter(renderer,scene,mobile){
       sampleUV=vec2(side*.5+(uv.x/fovTan*.5+.5)*.5,uv.y/fovTan*.5+.5);
       sampleUV.x=clamp(sampleUV.x,side*.5+.5/imageSize.x,(side+1.)*.5-.5/imageSize.x);sampleUV.y=clamp(sampleUV.y,.5/imageSize.y,1.-.5/imageSize.y);}
       vec3 color=max(texture2D(image,sampleUV).rgb,vec3(0.));
+      vec2 halo=vec2(6.)/imageSize;
+      color+=(glowTap(sampleUV,vec2(halo.x,0.))+glowTap(sampleUV,vec2(-halo.x,0.))+glowTap(sampleUV,vec2(0.,halo.y))+glowTap(sampleUV,vec2(0.,-halo.y)))*.055;
       color=clamp((color*(2.51*color+.03))/(color*(2.43*color+.59)+.14),0.,1.);
-      color=mix(vec3(dot(color,vec3(.2126,.7152,.0722))),color,.88);
+      color=mix(vec3(dot(color,vec3(.2126,.7152,.0722))),color,.96);
       float grain=fract(sin(dot(sampleUV*resolution+floor(streetTime*24.),vec2(12.9898,78.233)))*43758.5453);color+=(grain-.5)*.004;
       if(stereo>.5&&crossOn>.5){vec2 gd=abs(fract(uv*4.+.5)-.5)/4.;float a=step(min(gd.x,gd.y),.0035)+step(min(abs(uv.x),abs(uv.y)),.008);color=mix(color,vec3(0.,1.,.6),clamp(a,0.,1.));}
       color=mix(vec3(1.),color,smoothstep(0.,1.,reveal));gl_FragColor=vec4(color,1.);
       #include <colorspace_fragment>}`,
   });postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),post));
   const forward=new THREE.Vector3(),right=new THREE.Vector3(),up=new THREE.Vector3(),basis=new THREE.Matrix4(),position=new THREE.Vector3();let width=0,height=0,sw=0,sh=0;
-  function setView({x,z,yaw,pitch,vr,viewer,w,h}){
+  function setView({x,y=1.68,z,yaw,pitch,vr,viewer,w,h}){
     if(w!==width||h!==height){width=w;height=h;const scale=1;sw=Math.max(2,2*Math.round(w*scale/2));sh=Math.max(1,Math.round(h*scale));renderer.setSize(w,h,false);target.setSize(sw,sh);uniforms.resolution.value.set(w,h);uniforms.imageSize.value.set(sw,sh);}
-    position.set(x,1.68,z);forward.set(Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));right.set(-Math.cos(yaw),0,Math.sin(yaw));up.crossVectors(right,forward).normalize();basis.makeBasis(right,up,forward.clone().negate());camera.quaternion.setFromRotationMatrix(basis);camera.position.copy(position);
+    position.set(x,y,z);forward.set(Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));right.set(-Math.cos(yaw),0,Math.sin(yaw));up.crossVectors(right,forward).normalize();basis.makeBasis(right,up,forward.clone().negate());camera.quaternion.setFromRotationMatrix(basis);camera.position.copy(position);
     camera.fov=vr?viewer.fovDeg*2:75;camera.aspect=vr?1:w/h;camera.updateProjectionMatrix();camera.updateMatrixWorld();
   }
   function draw({time,reveal,vr,geometry,viewer,calib,w,h}){
