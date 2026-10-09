@@ -31,8 +31,8 @@ export function createStreetScene({rural,assets}) {
           vec3 nearT=min(a,b),farT=max(a,b);
           float start=max(0.,max(nearT.x,max(nearT.y,nearT.z))),end=min(farT.x,min(farT.y,farT.z));
           if(end<=start)discard;
-          float stepSize=(end-start)/${mobile?'6.':'10.'},density=0.;
-          for(int j=0;j<${mobile?6:10};j++){
+          float stepSize=(end-start)/10.,density=0.;
+          for(int j=0;j<10;j++){
             vec3 p=cameraPosition+ray*(start+(float(j)+.5)*stepSize),q=abs((p-center)/extent);
             float edge=(1.-smoothstep(.45,1.,q.x))*(1.-smoothstep(.45,1.,q.z));
             float height=smoothstep(-.2,.25,p.y)*(1.-smoothstep(.65,2.5,p.y));
@@ -80,7 +80,7 @@ export function createStreetScene({rural,assets}) {
   const plaster=plasterColors.map(color=>new THREE.MeshStandardMaterial({color,map:plasterMap,normalMap:plasterNormal,normalScale:new THREE.Vector2(.32,.32),roughnessMap:plasterRough,roughness:.93}));
   const glass=new THREE.MeshPhysicalMaterial({color:'#817b68',roughness:.22,metalness:.05,transparent:true,opacity:.28,depthWrite:false});
   scene.add(new THREE.HemisphereLight('#e2bcb0','#55514a',1.25));
-  const sun=new THREE.DirectionalLight('#ffc18c',2.1);sun.position.set(-28,16,-80);sun.castShadow=!mobile;
+  const sun=new THREE.DirectionalLight('#ffc18c',2.1);sun.position.set(-28,16,-80);sun.castShadow=true;
   sun.shadow.mapSize.set(1536,1536);Object.assign(sun.shadow.camera,{left:-28,right:28,top:38,bottom:-38,near:1,far:180});
   sun.shadow.bias=-.0003;sun.shadow.normalBias=.035;scene.add(sun);scene.add(sun.target);
   const sky=new THREE.Mesh(new THREE.SphereGeometry(280,40,24),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,
@@ -98,7 +98,7 @@ export function createStreetScene({rural,assets}) {
   }));scene.add(sky);
 
   // PBR asphalt with a real planar reflection pass for the shallow wet patches.
-  const reflectionTarget=new THREE.WebGLRenderTarget(mobile?256:512,mobile?256:512);
+  const reflectionTarget=new THREE.WebGLRenderTarget(512,512);
   const reflectionCamera=new THREE.PerspectiveCamera(),reflectionMatrix=new THREE.Matrix4();
   const roadMaterial=new THREE.MeshStandardMaterial({color:'#827d72',map:texture('asphaltColor',[40,70],true),normalMap:texture('asphaltNormal',[40,70]),normalScale:new THREE.Vector2(.3,.3),roughnessMap:texture('asphaltRough',[40,70]),roughness:.43});
   roadMaterial.onBeforeCompile=shader=>{
@@ -250,7 +250,7 @@ export function createStreetScene({rural,assets}) {
       float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}
       void main(){float edge=1.-smoothstep(.17,.5,length(vUv-.5));float n=noise(vUv*6.+vec2(streetTime*.09,-streetTime*.12));gl_FragColor=vec4(.24,.23,.22,edge*n*opacity);}`,
   });
-  const smoke=[];for(let i=0;i<(mobile?14:22);i++){const puff=new THREE.Mesh(new THREE.PlaneGeometry(1,1),smokeMaterial.clone());puff.material.uniforms.streetTime=timeUniform;fire.add(puff);smoke.push(puff);}
+  const smoke=[];for(let i=0;i<22;i++){const puff=new THREE.Mesh(new THREE.PlaneGeometry(1,1),smokeMaterial.clone());puff.material.uniforms.streetTime=timeUniform;fire.add(puff);smoke.push(puff);}
 
   // Rigged human assets, not primitive mannequins. Different routes, animation
   // phases, pauses and speeds avoid crowds walking in lockstep.
@@ -304,7 +304,7 @@ export function createStreetScene({rural,assets}) {
     person(1,{kind:'customer',x:-2.1,z:-4.3,yaw:-Math.PI/2,height:1.62,clothes:'#9a7065'});
     person(0,{kind:'standing',x:5.05,z:-20,yaw:-Math.PI/2,height:1.77,clothes:'#62746f'});
     person(1,{kind:'standing',x:4.8,z:-21.3,yaw:Math.PI/2,height:1.64,clothes:'#9b8c74'});
-    const count=mobile?5:8;
+    const count=8;
     for(let i=0;i<count;i++){
       const side=i%2?1:-1,z0=27-i*14;
       const route=new THREE.CatmullRomCurve3([new THREE.Vector3(side*4.1,0,z0),new THREE.Vector3(side*4.2,0,z0-27),new THREE.Vector3(-side*4.1,0,z0-36),new THREE.Vector3(-side*4.1,0,z0+7)],true,'catmullrom',.18);
@@ -399,6 +399,7 @@ export function createStreetScene({rural,assets}) {
     }
   }
   function render(view){
+    renderer.shadowMap.needsUpdate=true;
     const {x,z,time,reveal,w,h}=view;canvas.style.display='block';timeUniform.value=time;updatePeople(time);
     fireLight.intensity=8.5+Math.sin(time*8.7)*.65+Math.sin(time*13.1)*.4;
     presenter.setView(view);const camera=presenter.camera;sky.position.copy(camera.position);
@@ -407,7 +408,7 @@ export function createStreetScene({rural,assets}) {
       puff.scale.setScalar(.45+age*2.7);puff.quaternion.copy(camera.quaternion);puff.material.uniforms.opacity.value=.22*Math.sin(age*Math.PI)*(1.-age*.5);
     });
     sun.target.position.set(x,0,z-18);sun.position.copy(sun.target.position).add(new THREE.Vector3(-28,16,-65));sun.target.updateMatrixWorld();
-    if(time-lastReflection>(mobile?.16:.08)||lastReflection===-Infinity){
+    if(time-lastReflection>.08||lastReflection===-Infinity){
       lastReflection=time;reflectionCamera.copy(camera);reflectionCamera.position.y=-camera.position.y;
       const direction=camera.getWorldDirection(new THREE.Vector3());direction.y=-direction.y;
       reflectionCamera.up.set(0,-1,0);reflectionCamera.lookAt(reflectionCamera.position.clone().add(direction));reflectionCamera.updateMatrixWorld();
@@ -454,8 +455,9 @@ function createStreetPresenter(renderer,scene,mobile){
     camera.fov=vr?viewer.fovDeg*2:75;camera.aspect=vr?1:w/h;camera.updateProjectionMatrix();camera.updateMatrixWorld();
   }
   function draw({time,reveal,vr,geometry,viewer,calib,w,h}){
+    target.viewport.set(0,0,sw,sh);target.scissorTest=false;
     renderer.setRenderTarget(target);renderer.setScissorTest(false);renderer.setViewport(0,0,sw,sh);renderer.clear();
-    if(vr){renderer.setScissorTest(true);for(let eye=0;eye<2;eye++){camera.position.copy(position).addScaledVector(right,geometry.eyeHalf*(eye*2-1));camera.updateMatrixWorld();renderer.setViewport(eye*sw/2,0,sw/2,sh);renderer.setScissor(eye*sw/2,0,sw/2,sh);renderer.render(scene,camera);}}
+    if(vr){renderer.setScissorTest(true);for(let eye=0;eye<2;eye++){camera.position.copy(position).addScaledVector(right,geometry.eyeHalf*(eye*2-1));camera.updateMatrixWorld();target.viewport.set(eye*sw/2,0,sw/2,sh);target.scissor.set(eye*sw/2,0,sw/2,sh);target.scissorTest=true;renderer.setViewport(eye*sw/2,0,sw/2,sh);renderer.setScissor(eye*sw/2,0,sw/2,sh);renderer.render(scene,camera);}}
     else{camera.position.copy(position);camera.updateMatrixWorld();renderer.render(scene,camera);}
     renderer.setScissorTest(false);renderer.setRenderTarget(null);renderer.setViewport(0,0,w,h);
     uniforms.stereo.value=vr?1:0;uniforms.reveal.value=reveal;uniforms.streetTime.value=time;uniforms.lensL.value.set(geometry.lx,geometry.ly);uniforms.lensR.value.set(geometry.rx,geometry.ly);uniforms.pxPerM.value=geometry.pxPerM;uniforms.screenLens.value=viewer.screenLensMm/1000;uniforms.kd.value.set(viewer.k[0]*calib.kScale,viewer.k[1]*calib.kScale);uniforms.fovTan.value=Math.tan(viewer.fovDeg*Math.PI/180);uniforms.crossOn.value=calib.cross?1:0;renderer.render(postScene,postCamera);

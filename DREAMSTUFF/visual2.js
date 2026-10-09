@@ -216,12 +216,14 @@ export function createRuralScene({assets=null}={}) {
   canvas.setAttribute('aria-label', 'Dream landscape');
   canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;display:none';
   document.body.append(canvas);
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !MOBILE, alpha: false, powerPreference: 'high-performance' });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.setPixelRatio(1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
-  renderer.shadowMap.enabled = !MOBILE;
+  renderer.shadowMap.enabled = true;
+  // Reflections and both eyes share one shadow update per frame.
+  renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
   scene.background = FOG;
@@ -248,7 +250,7 @@ export function createRuralScene({assets=null}={}) {
   scene.add(new THREE.HemisphereLight('#f2edbd', '#59633b', 2.0));
   const sun = new THREE.DirectionalLight('#fff4c9', 3.4);
   sun.position.copy(SUN).multiplyScalar(65);
-  sun.castShadow = !MOBILE;
+  sun.castShadow = true;
   sun.shadow.mapSize.set(1536, 1536);
   Object.assign(sun.shadow.camera, { left: -48, right: 48, top: 48, bottom: -48, near: 1, far: 180 });
   sun.shadow.bias = -.0003;
@@ -272,7 +274,7 @@ export function createRuralScene({assets=null}={}) {
   sky.frustumCulled = false;
   scene.add(sky);
 
-  const groundGeometry = new THREE.PlaneGeometry(640, 640, MOBILE ? 160 : 240, MOBILE ? 160 : 240);
+  const groundGeometry = new THREE.PlaneGeometry(640, 640, 240, 240);
   groundGeometry.rotateX(-Math.PI / 2);
   const groundPositions = groundGeometry.attributes.position;
   const groundColors = new Float32Array(groundPositions.count * 3);
@@ -314,7 +316,7 @@ export function createRuralScene({assets=null}={}) {
   const tileSize = 32;
   for (let tx = -2; tx <= 2; tx++) for (let tz = -2; tz <= 2; tz++) {
     const ring=Math.max(Math.abs(tx),Math.abs(tz));
-    const tileCount=ring===0?(MOBILE?40000:90000):ring===1?(MOBILE?6000:14000):(MOBILE?1200:2400);
+    const tileCount=ring===0?90000:ring===1?14000:2400;
     const rng = random((tx + 100) * 73856093 ^ (tz + 100) * 19349663);
     const mesh = new THREE.InstancedMesh(grassGeometry, grassMaterial, tileCount);
     let count = 0;
@@ -368,7 +370,7 @@ export function createRuralScene({assets=null}={}) {
         matrix.updateMatrix();
         const shade=rng();
         // Reduce leaf density, not tree shapes or the deterministic branch sequence.
-        if(!MOBILE||i%2===0)leaves.push({ matrix: matrix.matrix.clone(), shade });
+        leaves.push({ matrix: matrix.matrix.clone(), shade });
       }
     }
     if (depth === 0) return;
@@ -431,7 +433,7 @@ export function createRuralScene({assets=null}={}) {
   treeReady.catch(error=>console.error('Rural tree asset failed to load',error));
 
   // Render actual mirrored geometry into a texture for shallow water reflections.
-  const reflectionTarget = new THREE.WebGLRenderTarget(MOBILE ? 384 : 768, MOBILE ? 384 : 768);
+  const reflectionTarget = new THREE.WebGLRenderTarget(768,768);
   const reflectionCamera = new THREE.PerspectiveCamera();
   const reflectionMatrix = new THREE.Matrix4();
   const waterMaterial = new THREE.ShaderMaterial({
@@ -601,6 +603,7 @@ export function createRuralScene({assets=null}={}) {
       postUniforms.resolution.value.set(w,h);postUniforms.imageSize.value.set(sceneWidth,sceneHeight);
     }
     clock.value=time;
+    renderer.shadowMap.needsUpdate=true;
     postUniforms.scareOn.value=sceneAge>=10&&sceneAge<13?1:0;
     postUniforms.eyeAspect.value=vr?1:w/h;
     dog.update(time);
@@ -617,7 +620,7 @@ export function createRuralScene({assets=null}={}) {
     sun.target.position.set(x,0,z);sun.position.copy(sun.target.position).addScaledVector(SUN,65);sun.target.updateMatrixWorld();
     sky.position.copy(position);
     const headTurned=Math.abs(yaw-lastReflectionYaw)>.025||Math.abs(pitch-lastReflectionPitch)>.025;
-    if(time-lastReflection>(MOBILE?.09:.035)||lastReflection<0||headTurned){
+    if(time-lastReflection>.035||lastReflection<0||headTurned){
       lastReflection=time;lastReflectionYaw=yaw;lastReflectionPitch=pitch;
       reflectionCamera.copy(camera);
       reflectionCamera.position.y=-.38-position.y;
@@ -629,12 +632,16 @@ export function createRuralScene({assets=null}={}) {
       renderer.setRenderTarget(reflectionTarget);renderer.setScissorTest(false);renderer.clear();renderer.render(scene,reflectionCamera);
       water.visible=true;membranes.visible=true;
     }
+    target.viewport.set(0,0,sceneWidth,sceneHeight);target.scissorTest=false;
     renderer.setRenderTarget(target);renderer.setScissorTest(false);renderer.clear();
     if(vr){
       renderer.setScissorTest(true);
       for(let eye=0;eye<2;eye++){
         camera.position.copy(position).addScaledVector(right,geometry.eyeHalf*(eye*2-1));camera.updateMatrixWorld();
         const left=eye*sceneWidth/2,eyeWidth=sceneWidth/2;
+        // Shadow passes restore the render target's viewport/scissor.
+        // Store the eye bounds there as well as on the renderer.
+        target.viewport.set(left,0,eyeWidth,sceneHeight);target.scissor.set(left,0,eyeWidth,sceneHeight);target.scissorTest=true;
         renderer.setViewport(left,0,eyeWidth,sceneHeight);renderer.setScissor(left,0,eyeWidth,sceneHeight);renderer.render(scene,camera);
       }
     }else{renderer.setViewport(0,0,sceneWidth,sceneHeight);renderer.render(scene,camera);}

@@ -24,7 +24,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020305;col
 .calib{position:fixed;inset:0;z-index:12;background:#020305;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;box-sizing:border-box;text-align:center;font-size:13px}.calib[hidden]{display:none}.calib p{margin:0;max-width:520px;opacity:.8}.card{border:2px solid #0f9;border-radius:10px;box-sizing:border-box;background:#00ff9910}.calib input{width:min(520px,90vw)}.calib .row{display:flex;gap:10px}.calib button{background:#eee;color:#111;border:0;border-radius:10px;padding:10px 16px;font-weight:700}.calib button.ghost{background:transparent;color:#eee;border:1px solid #ffffff55}
 .vtoast{display:none;position:fixed;top:22%;transform:translateX(-50%);z-index:8;background:#000d;color:#0f9;border:1px solid #0f96;border-radius:8px;padding:6px 10px;font-size:12px;white-space:nowrap;pointer-events:none}.vtoast.show{display:block}
 </style>
-<script src="./visual2.bundle.js" defer></script>
+<script src="./visual2.bundle.js?v=native-vr-20261009" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body><canvas id="c"></canvas><div class="cam" id="cam"><video id="webcam" autoplay playsinline muted></video><div class="camstat" id="camstat">Camera starting…</div></div><div class="reticle" id="reticle" aria-hidden="true"></div><div class="ui" id="ui"><b id="title">LIMINAL WALK</b><div class="hint" id="hint">WASD / arrows move · S / ↓ back · mouse look</div><div id="status" style="margin-top:5px;opacity:.72">Connecting…</div><button id="motion" style="display:none">ENABLE HEAD TRACKING</button><button id="vr">CARDBOARD VIEW</button></div><div class="touch"><button data-k="a">←</button><button data-k="w">↑</button><button data-k="s">↓</button><button data-k="d">→</button></div><div class="qr" id="qr"><div class="qrhead"><b>JOIN WITH A PHONE</b><button id="qrtoggle">Hide</button></div><div class="qrbody"><div class="qrcode" id="qrcode">Creating room…</div><div class="qrtext" id="qrtext">Scan with the phone camera, tap “Enter VR”, then place the phone in the Cardboard headset.</div><a id="qrlink" target="_blank" rel="noopener"></a></div></div><div class="enter" id="enter"><div><b>LIMINAL WALK · HEADSET</b><p id="enterstatus">Connecting to laptop…</p><div class="install" id="install" hidden><p><b>Full screen on iPhone needs a one-time step.</b> Safari doesn’t let web pages hide its bars.</p><ol><li>Tap <b>Share</b> in Safari’s toolbar</li><li>Tap <b>Add to Home Screen</b> (keep “Open as Web App” on)</li><li>Open <b>Liminal VR</b> from your Home Screen</li></ol><p class="small">The icon reconnects to this laptop next time.</p><button class="ghost" id="safaribtn">Continue in Safari anyway</button></div><button id="enterbtn">TAP TO ENTER VR</button><p class="small">Turn the phone sideways and place it in the Cardboard headset. The laptop controls the walk.</p><p class="small"><a href="#" id="roomlink">Laptop showing a different room code?</a> · <a href="#" id="caliblink">Calibrate screen size</a></p><p class="small" id="calibstate"></p></div></div><div class="calib" id="calib" hidden><b>SCREEN SIZE</b><p id="calibmsg">Turn the phone sideways. Hold a standard bank/ID card (85.6 mm wide) against the screen and drag the slider until the green box is exactly as wide as the card.</p><div class="card" id="card"></div><input type="range" id="cardw" min="250" max="1100" step="1"><div class="row"><button id="calibsave">SAVE</button><button class="ghost" id="calibreset">Reset</button><button class="ghost" id="calibcancel">Cancel</button></div></div><div class="vtoast" id="toastL"></div><div class="vtoast" id="toastR"></div><div class="banner" id="banner">Connection lost · reconnecting…</div>
@@ -233,7 +233,9 @@ col=mix(col,vec3(1.),smoothstep(0.,1.,transition));
 gl_FragColor=vec4(col,1);}`;
 function shader(type,src){let s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}let pr=gl.createProgram();gl.attachShader(pr,shader(gl.VERTEX_SHADER,V));gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,F));gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);let b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);let a=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
 const U=n=>gl.getUniformLocation(pr,n),ur=U('r'),ut=U('t'),uc=U('cp'),urot=U('rot'),uvr=U('vr'),ue=U('eye'),uLensL=U('lensL'),uLensR=U('lensR'),uPxPerM=U('pxPerM'),uScreenLens=U('screenLens'),uKd=U('kd'),uFovTan=U('fovTan'),uCross=U('crossOn'),uTransition=U('transition'),uAttack=U('attack'),uFold=U('fold'),uFade=U('fade');let pos={x:0,y:1.68,z:7},yaw=Math.PI,pitch=0,keys={},vr=false,last=performance.now();
-function resize(){let d=Math.min(devicePixelRatio,1.5);canvas.width=Math.floor(innerWidth*d);canvas.height=Math.floor(innerHeight*d);gl.viewport(0,0,canvas.width,canvas.height)}addEventListener('resize',resize);resize();
+let renderPixelRatio=Math.min(devicePixelRatio||1,1.5);
+function resize(){const limit=gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),d=Math.min(renderPixelRatio,limit/innerWidth,limit/innerHeight);canvas.width=2*Math.floor(innerWidth*d/2);canvas.height=Math.floor(innerHeight*d);gl.viewport(0,0,canvas.width,canvas.height)}addEventListener('resize',resize);resize();
+function useLandscapeResolution(){const nativeRatio=Math.max(1,devicePixelRatio||1);if(renderPixelRatio!==nativeRatio){renderPixelRatio=nativeRatio;resize();}}
 // Cardboard viewer optics: Google Cardboard I/O 2015 ("V2") values from cardboard-vr-display.
 const VIEWER={interLensMm:64,screenLensMm:39,baselineMm:35,k:[0.34,0.55],fovDeg:60},BEVEL_MM=4,CARD_MM=85.6;
 const IS_IPHONE=/iPhone|iPod/.test(navigator.userAgent);
@@ -354,12 +356,17 @@ function onDeviceOrientation(e){
  const heading=Math.atan2(east,north),elevation=Math.asin(Math.max(-1,Math.min(1,upward)));
  // Heading is meaningless when looking straight up/down; hold the last value there.
  if(Math.abs(upward)<.97||!headLook){
-  if(!headBase)headBase=heading;
+  if(headBase===null)headBase=heading;
   headLook={yaw:angleDelta(heading,headBase),pitch:Math.max(-1.25,Math.min(1.25,elevation))};
  }else headLook.pitch=Math.max(-1.25,Math.min(1.25,elevation));
 }
 // The direction you face when entering VR (or tapping the screen) becomes "straight ahead" along the laptop's view.
 function recenterHead(){headBase=null;headLook=null}
+function headViewYaw(body,offset,threeScene){
+ // Compass heading grows clockwise; the Three.js camera yaw grows leftward.
+ // Visual 1 retains its existing raymarched camera convention.
+ return body+(threeScene?-offset:offset);
+}
 async function startHeadTracking(){
  // iOS only grants motion access from inside a tap, and before any other await.
  try{if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission&&await DeviceOrientationEvent.requestPermission()!=='granted')return}catch{return}
@@ -562,8 +569,9 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   streetOrigin=target.streetOrigin;streetStartedAge=target.streetStartedAge;
   streetAge=streetStartedAge===null?0:Math.max(0,ruralAge-streetStartedAge);
  }
- if(headLook){yaw=bodyYaw+headLook.yaw;pitch=headLook.pitch}
+ if(headLook){yaw=headViewYaw(bodyYaw,headLook.yaw,!!ruralOrigin);pitch=headLook.pitch}
  if(streetOrigin&&streetScene){
+  useLandscapeResolution();
   document.body.classList.remove('transitioning');
   try{
    streetScene.render({x:pos.x-streetOrigin.x,z:pos.z-streetOrigin.z+12,yaw,pitch,
@@ -583,6 +591,7 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   // Every viewer uses the master's reveal clock. Late joins/late asset loads
   // catch up immediately instead of replaying a separate local 3.5-second fade.
   const landscapeReveal=clamp01((ruralAge-(ruralReadyAge??0))/3.5);
+  useLandscapeResolution();
   try{
    ruralScene.render({x:pos.x-ruralOrigin.x,z:pos.z-ruralOrigin.z+12,yaw,pitch,
     time:ruralAge,sceneAge:ruralAge-(ruralReadyAge??ruralAge),reveal:landscapeReveal*(1-ruralExitProgress),vr,geometry:vrGeometry(),viewer:VIEWER,calib,
