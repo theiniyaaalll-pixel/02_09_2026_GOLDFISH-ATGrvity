@@ -529,7 +529,7 @@ export function createRuralScene({assets=null}={}) {
   }));scene.add(particles);
 
   const camera=new THREE.PerspectiveCamera(90,1,.08,360);
-  const target=new THREE.WebGLRenderTarget(1,1,{samples:MOBILE?0:2});
+  const target=new THREE.WebGLRenderTarget(1,1,{samples:2});
   const postScene=new THREE.Scene(),postCamera=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
   let jumpScareTexture;
   const jumpScareReady=new Promise((resolve,reject)=>{
@@ -593,9 +593,9 @@ export function createRuralScene({assets=null}={}) {
     if(!active){canvas.style.display='block';active=true;}
     if(w!==width||h!==height){
       width=w;height=h;
-      // Only the offscreen scene is reduced. The final lens pass keeps the
-      // original canvas size and all calibration values exactly as supplied.
-      const renderScale=MOBILE?.72:1;
+      // The offscreen scene matches the canvas size on every device; phones
+      // were blurred by the old .72 downscale. Calibration values are unchanged.
+      const renderScale=1;
       sceneWidth=Math.max(2,2*Math.round(w*renderScale/2));sceneHeight=Math.max(1,Math.round(h*renderScale));
       renderer.setSize(w,h,false);target.setSize(sceneWidth,sceneHeight);
       postUniforms.resolution.value.set(w,h);postUniforms.imageSize.value.set(sceneWidth,sceneHeight);

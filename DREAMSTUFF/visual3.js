@@ -426,7 +426,7 @@ export function createStreetScene({rural,assets}) {
 // Identical lens mapping, eye separation and calibration inputs to visual 2.
 // No screen-size guesses or calibration values are introduced for visual 3.
 function createStreetPresenter(renderer,scene,mobile){
-  const camera=new THREE.PerspectiveCamera(75,1,.08,360),target=new THREE.WebGLRenderTarget(1,1,{samples:mobile?0:2});
+  const camera=new THREE.PerspectiveCamera(75,1,.08,360),target=new THREE.WebGLRenderTarget(1,1,{samples:2});
   const postScene=new THREE.Scene(),postCamera=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
   const uniforms={image:{value:target.texture},resolution:{value:new THREE.Vector2()},imageSize:{value:new THREE.Vector2()},lensL:{value:new THREE.Vector2()},lensR:{value:new THREE.Vector2()},pxPerM:{value:1},screenLens:{value:.039},kd:{value:new THREE.Vector2()},fovTan:{value:1},stereo:{value:0},crossOn:{value:0},reveal:{value:0},streetTime:{value:0}};
   const post=new THREE.ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:false,uniforms,
@@ -449,7 +449,7 @@ function createStreetPresenter(renderer,scene,mobile){
   });postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),post));
   const forward=new THREE.Vector3(),right=new THREE.Vector3(),up=new THREE.Vector3(),basis=new THREE.Matrix4(),position=new THREE.Vector3();let width=0,height=0,sw=0,sh=0;
   function setView({x,z,yaw,pitch,vr,viewer,w,h}){
-    if(w!==width||h!==height){width=w;height=h;const scale=mobile?.72:1;sw=Math.max(2,2*Math.round(w*scale/2));sh=Math.max(1,Math.round(h*scale));renderer.setSize(w,h,false);target.setSize(sw,sh);uniforms.resolution.value.set(w,h);uniforms.imageSize.value.set(sw,sh);}
+    if(w!==width||h!==height){width=w;height=h;const scale=1;sw=Math.max(2,2*Math.round(w*scale/2));sh=Math.max(1,Math.round(h*scale));renderer.setSize(w,h,false);target.setSize(sw,sh);uniforms.resolution.value.set(w,h);uniforms.imageSize.value.set(sw,sh);}
     position.set(x,1.68,z);forward.set(Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));right.set(-Math.cos(yaw),0,Math.sin(yaw));up.crossVectors(right,forward).normalize();basis.makeBasis(right,up,forward.clone().negate());camera.quaternion.setFromRotationMatrix(basis);camera.position.copy(position);
     camera.fov=vr?viewer.fovDeg*2:75;camera.aspect=vr?1:w/h;camera.updateProjectionMatrix();camera.updateMatrixWorld();
   }
