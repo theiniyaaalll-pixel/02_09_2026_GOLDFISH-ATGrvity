@@ -1,10 +1,10 @@
 # Liminal VR synchronized v8
 
-A laptop controls a freely explorable underwater bridge with reflective water and a distant white light sphere. Reaching the sphere, or spending four minutes in the first visual, starts a white fade into a warm rural landscape with grass, shallow ponds, trees and translucent cellular materials. The phone mirrors the scene in calibrated Cardboard stereo with head tracking.
+A laptop controls a freely explorable underwater bridge with reflective water and a distant white light sphere. Reaching the sphere, or spending two minutes in the first visual, starts a white fade into a warm rural landscape with grass, shallow ponds, trees and translucent cellular materials. The phone mirrors the scene in calibrated Cardboard stereo with head tracking.
 
 ## Flow
 
-1. Open the site on a laptop (Chrome recommended). It becomes the **master** and asks for webcam access (both thumbs up = walk forward; W/Up moves forward, S/Down reverses, and mouse look aims).
+1. Open the site on a laptop (Chrome recommended). It becomes the **master** and asks for webcam access (index up = forward, open palm = backward, point left/right = sidestep, index circle = full turn; WASD/arrows and mouse look remain available).
 2. A **QR code** appears top-right. Scan it with a phone.
 3. On the phone, tap **Enter VR** (goes fullscreen, landscape, keeps the screen awake) and put it in the headset.
 
@@ -34,7 +34,7 @@ Repo **Settings → Pages → Source: Deploy from a branch → `main` / `(root)`
 
 The QR code uses the exact landing-page URL open on the laptop, then adds the headset mode and room code. Keep the controller open at the deployed HTTPS address so phones can open the QR destination and connect.
 
-All paths are relative. The generated `visual2.bundle.js` must be published beside `index.html`; it includes the landscape renderer, model and textures. Run `npm run build` after editing `visual2.js`, its dependencies or its assets. `npm start` rebuilds it automatically.
+All paths are relative. The generated `visual2.bundle.js` must be published beside `index.html`; it includes the landscape renderer, model and textures. Run `npm run build` after editing `visual2.js`, `visual3.js`, their dependencies or their assets. `npm start` rebuilds it automatically.
 
 ## Local development
 
@@ -44,6 +44,12 @@ URL modes: `?mode=controller` (default), `?mode=headset&room=<code>`, `?mode=sol
 
 ## Automatic visual transition
 
-Visual 2 preloads and prepares its shaders while visual 1 is running. The same page fades to white and then reveals the landscape automatically; no second link or page navigation is required. Both the 45-second timeout and reaching the light use this sequence.
+Visual 2 preloads and prepares its shaders while visual 1 is running. The same page fades to white and then reveals the landscape automatically; no second link or page navigation is required. Both the two-minute timeout and reaching the light use this sequence. Visual 2 then fades to white on reaching its own light or after two minutes, and automatically reveals visual 3. The master publishes the street origin and reveal clock, so the phone follows the same transition.
 
 The packaged landscape also runs when `index.html?mode=solo` is opened directly as a file. Laptop/phone testing should use the deployed HTTPS site as before. The `?mode=solo&scene=2` link is only an optional direct preview, not part of the normal sequence.
+
+## Visual 3 preview
+
+Use `index.html?mode=solo&scene=3` to preview the evening street directly. Normal simulation flow remains visual 1 ? visual 2 ? visual 3, with white fades and the same navigation and calibration. Visual 3 reuses the existing Three.js renderer and tree geometry. Its packaged assets are included in `visual2.bundle.js`, so no extra runtime model downloads are required.
+
+The current preview uses three CC0 rigged adult characters, with walking/idle clips and custom cycling IK. It does not yet include children, region-specific scanned characters or a complete variety of Indian clothing. Close-up facial realism and the character mix remain art-review items; this is not a claim of reference-level photorealism. See `assets/street/README.md` for provenance.

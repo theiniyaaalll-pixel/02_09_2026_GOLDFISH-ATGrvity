@@ -41,7 +41,7 @@ float cyl(vec3 p,float h,float rad){vec2 d=abs(vec2(length(p.xz),p.y))-vec2(rad,
 float ellipsoid(vec3 p,vec3 r){float k0=length(p/r),k1=length(p/(r*r));return k0*(k0-1.)/max(k1,.0001);}
 float capsule(vec3 p,vec3 a,vec3 b,float radius){vec3 pa=p-a,ba=b-a;float h=clamp(dot(pa,ba)/max(dot(ba,ba),.0001),0.,1.);return length(pa-ba*h)-radius;}
 // Luminous sphere far beyond the opening stretch, beside the walkway.
-const vec3 orbCenter=vec3(3.15,2.1,-140.);
+const vec3 orbCenter=vec3(3.15,2.1,-63.);
 const float orbRadius=1.45;
 vec4 orbLight(vec3 origin,vec3 direction,float limit,float time){
  vec3 offset=orbCenter-origin;
@@ -269,14 +269,15 @@ if(role!=='headset'){canvas.addEventListener('click',()=>canvas.requestPointerLo
 vrBtn.onclick=()=>{vr=!vr;document.body.classList.toggle('vr',vr);vrBtn.textContent=vr?'NORMAL VIEW':'CARDBOARD VIEW'};
 let synced=false,lastSeq=-1,walkSeconds=0,dreamTransition=false,routeHeading=yaw,routeFolded=false,foldLevel=0,swallowStarted=-1,attackLevel=0,fadeLevel=0,headTrackingEnabled=false,headsetConn=null,publishHeadLook=()=>{},headOrientationBase=null,lastHeadSend=0;
 // The master owns scene timing; the headset receives the same fade progress.
-const FIRST_SCENE_MS=240000,WHITE_FADE_MS=2000;
-// Optional solo preview; normal controller/headset timing stays at four minutes.
-const firstSceneStarted=performance.now()-(role==='solo'&&params.get('scene')==='2'?FIRST_SCENE_MS+WHITE_FADE_MS+3500:0);
+const FIRST_SCENE_MS=120000,WHITE_FADE_MS=2000;
+// Optional solo preview; normal controller/headset timing stays at two minutes.
+const firstSceneStarted=performance.now()-(role==='solo'&&['2','3'].includes(params.get('scene'))?FIRST_SCENE_MS+WHITE_FADE_MS+3500:0);
 let whiteFadeStarted=null,whiteProgress=0;
 let ruralScene=null,ruralOrigin=null,ruralAge=0;
 const RURAL_DURATION_SECONDS=120;
 let ruralReadyAge=null,ruralExitAge=null,ruralExitProgress=0;
 let ruralLoadError=null;
+let streetScene=null,streetOrigin=null,streetStartedAge=null,streetAge=0,streetLoadError=null;
 function ruralSceneFailed(error){
  ruralLoadError=error;
  ruralScene?.hide();ruralScene=null;
@@ -291,14 +292,25 @@ async function prepareRuralScene(){
   await scene.prepare({x:0,z:12,yaw:Math.PI,pitch:0,time:0,vr,
    geometry:vrGeometry(),viewer:VIEWER,calib,w:canvas.width,h:canvas.height});
   ruralScene=scene;
+  // Share the existing Three.js renderer and photographed tree geometry.
+  // Prepare visual 3 during the earlier scenes, not when the white fade ends.
+  prepareStreetScene(scene);
  }catch(error){ruralSceneFailed(error);}
 }
 // The deferred classic bundle includes the model and textures. Prepare it in
 // the background, while visual 1 remains visible, without navigating away.
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',prepareRuralScene,{once:true});
 else prepareRuralScene();
+async function prepareStreetScene(rural){
+ try{
+  const scene=window.RuralVisual.createStreetScene(rural);
+  await scene.prepare({x:0,z:12,yaw:Math.PI,pitch:0,time:0,reveal:0,vr,
+   geometry:vrGeometry(),viewer:VIEWER,calib,w:canvas.width,h:canvas.height});
+  streetScene=scene;
+ }catch(error){streetLoadError=error;console.error('Visual 3 could not load',error);status.textContent='Visual 3 could not load. Reload with the latest visual2.bundle.js.';}
+}
 function advanceWhiteScene(now){
- const reachedLight=Math.hypot(pos.x-3.15,pos.y-2.1,pos.z+140)<=1.7;
+ const reachedLight=Math.hypot(pos.x-3.15,pos.y-2.1,pos.z+63)<=1.7;
  if(whiteFadeStarted===null&&(reachedLight||now-firstSceneStarted>=FIRST_SCENE_MS)){
   whiteFadeStarted=reachedLight?now:firstSceneStarted+FIRST_SCENE_MS;
   dreamTransition=true;
@@ -317,12 +329,18 @@ function advanceRuralExit(){
  if(ruralReadyAge===null)ruralReadyAge=ruralAge;
  if(ruralExitAge===null){
   const reached=ruralScene.reachedGlowBall(pos.x-ruralOrigin.x,pos.z-ruralOrigin.z+12);
-  if(ruralAge-ruralReadyAge>=RURAL_DURATION_SECONDS)ruralExitAge=ruralReadyAge+RURAL_DURATION_SECONDS;
+  if(role==='solo'&&params.get('scene')==='3')ruralExitAge=ruralAge-WHITE_FADE_MS/1000;
+  else if(ruralAge-ruralReadyAge>=RURAL_DURATION_SECONDS)ruralExitAge=ruralReadyAge+RURAL_DURATION_SECONDS;
   else if(reached)ruralExitAge=ruralAge;
  }
  ruralExitProgress=ruralExitAge===null?0:clamp01((ruralAge-ruralExitAge)/(WHITE_FADE_MS/1000));
 }
-let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,walkSeconds:0,scene:1,transition:false,whiteProgress:0,ruralOrigin:null,ruralAge:0,ruralReadyAge:null,ruralExitAge:null,fold:0,attack:0,fade:0,serverTime:0};
+function advanceStreetScene(){
+ if(ruralExitProgress<1||!streetScene)return;
+ if(!streetOrigin){streetOrigin={x:pos.x,z:pos.z};streetStartedAge=ruralAge;}
+ streetAge=Math.max(0,ruralAge-streetStartedAge);
+}
+let target={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx:0,vz:0,walkSeconds:0,scene:1,transition:false,whiteProgress:0,ruralOrigin:null,ruralAge:0,ruralReadyAge:null,ruralExitAge:null,streetOrigin:null,streetStartedAge:null,fold:0,attack:0,fade:0,serverTime:0};
 function angleDelta(a,b){return ((a-b+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI}
 function clamp01(x){return Math.max(0,Math.min(1,x))}
 function smooth01(x){x=clamp01(x);return x*x*(3.-2.*x)}
@@ -456,7 +474,7 @@ if(role==='headset'){
    // Some networks silently block WebRTC; don't wait forever for a link that never opens.
    openTimer=setTimeout(()=>{if(c===conn&&!c.open){setLink('Still connecting… if this persists, try another network (e.g. mobile data).',false);try{c.close()}catch{};schedule(500)}},12000);
    c.on('open',()=>{if(c!==conn)return;clearTimeout(openTimer);lastSeq=-1;lastData=performance.now();setLink('Connected to laptop',true)});
-   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.walkSeconds=Number.isFinite(x.walkSeconds)?x.walkSeconds:0;target.transition=!!x.transition;target.whiteProgress=Number.isFinite(x.whiteProgress)?clamp01(x.whiteProgress):0;target.ruralOrigin=x.ruralOrigin&&Number.isFinite(x.ruralOrigin.x)&&Number.isFinite(x.ruralOrigin.z)?x.ruralOrigin:null;target.ruralAge=Number.isFinite(x.ruralAge)?Math.max(0,x.ruralAge):0;target.scene=[1,2,3].includes(x.scene)?x.scene:(target.ruralOrigin?2:1);target.ruralReadyAge=Number.isFinite(x.ruralReadyAge)?Math.max(0,x.ruralReadyAge):null;target.ruralExitAge=Number.isFinite(x.ruralExitAge)?Math.max(0,x.ruralExitAge):null;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
+   c.on('data',x=>{if(c!==conn||!x)return;lastData=performance.now();if(x.cfg){applyCfg(x.cfg,m=>{try{c.send(m)}catch{}});return}if(x.seq<lastSeq)return;lastSeq=x.seq;target.x=x.x;target.y=x.y;target.z=x.z;target.yaw=x.yaw;target.pitch=x.pitch;target.vx=Number.isFinite(x.vx)?x.vx:0;target.vz=Number.isFinite(x.vz)?x.vz:0;target.walkSeconds=Number.isFinite(x.walkSeconds)?x.walkSeconds:0;target.transition=!!x.transition;target.whiteProgress=Number.isFinite(x.whiteProgress)?clamp01(x.whiteProgress):0;target.ruralOrigin=x.ruralOrigin&&Number.isFinite(x.ruralOrigin.x)&&Number.isFinite(x.ruralOrigin.z)?x.ruralOrigin:null;target.ruralAge=Number.isFinite(x.ruralAge)?Math.max(0,x.ruralAge):0;target.scene=[1,2,3].includes(x.scene)?x.scene:(target.ruralOrigin?2:1);target.ruralReadyAge=Number.isFinite(x.ruralReadyAge)?Math.max(0,x.ruralReadyAge):null;target.ruralExitAge=Number.isFinite(x.ruralExitAge)?Math.max(0,x.ruralExitAge):null;target.streetOrigin=x.streetOrigin&&Number.isFinite(x.streetOrigin.x)&&Number.isFinite(x.streetOrigin.z)?x.streetOrigin:null;target.streetStartedAge=Number.isFinite(x.streetStartedAge)?Math.max(0,x.streetStartedAge):null;target.serverTime=performance.now();synced=true;status.textContent=x.moving?'SYNCED · MOVING':'SYNCED · STOPPED'});
    c.on('close',()=>{if(c!==conn)return;synced=false;setLink('Connection lost · reconnecting…',false);schedule()});
   }
   // The laptop streams state ~30x/s even when standing still, so silence means the link is dead.
@@ -502,7 +520,7 @@ function publish(now,moving,source,vx=0,vz=0){
  // Send scene changes on the next frame, bypassing the normal pose throttle.
  if(role!=='controller'||!conns.size||(scene===lastPublishedScene&&now-lastPost<32))return;
  lastPost=now;lastPublishedScene=scene;
- const msg={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,walkSeconds,scene,transition:dreamTransition,whiteProgress,ruralOrigin,ruralAge,ruralReadyAge,ruralExitAge,moving,source,seq:++sendSeq};
+ const msg={x:pos.x,y:pos.y,z:pos.z,yaw,pitch,vx,vz,walkSeconds,scene,transition:dreamTransition,whiteProgress,ruralOrigin,ruralAge,ruralReadyAge,ruralExitAge,streetOrigin,streetStartedAge,moving,source,seq:++sendSeq};
  for(const c of conns)if(c.open)try{c.send(msg)}catch{}
 }
 if(role==='controller'&&!conns.size)status.textContent='MASTER · creating room…';
@@ -524,12 +542,13 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   let fx=Math.sin(yaw),fz=Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);pos.x+=fx*walkVelocity*dt;pos.z+=fz*walkVelocity*dt;let side=3*dt*(ruralOrigin?-1:1);if(left){pos.x-=rx*side;pos.z-=rz*side}if(right){pos.x+=rx*side;pos.z+=rz*side}
   advanceWhiteScene(now);
   advanceRuralExit();
+  advanceStreetScene();
   publish(now,Math.hypot(pos.x-startX,pos.z-startZ)>.0001,gesture!=='stop'||gestureTurn?'gesture':'keyboard',dt>0?(pos.x-startX)/dt:0,dt>0?(pos.z-startZ)/dt:0);
  } else if(synced){
   // Predict between network packets, then gently correct to the laptop's authoritative pose.
   const age=Math.min(.12,(performance.now()-target.serverTime)/1000);
   const px=target.x+target.vx*age,pz=target.z+target.vz*age;
-  const enteringLandscape=!!target.ruralOrigin&&!ruralOrigin;
+  const enteringLandscape=(!!target.ruralOrigin&&!ruralOrigin)||(!!target.streetOrigin&&!streetOrigin);
   const k=enteringLandscape?1:1-Math.exp(-dt*18);pos.x+=(px-pos.x)*k;pos.y+=(target.y-pos.y)*k;pos.z+=(pz-pos.z)*k;
   bodyYaw+=angleDelta(target.yaw,bodyYaw)*k;yaw=bodyYaw;pitch+=(target.pitch-pitch)*k;
   walkSeconds=target.walkSeconds;
@@ -540,9 +559,20 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   ruralReadyAge=target.ruralReadyAge;
   ruralExitAge=target.ruralExitAge;
   ruralExitProgress=target.scene===3?1:ruralExitAge===null?0:clamp01((ruralAge-ruralExitAge)/(WHITE_FADE_MS/1000));
+  streetOrigin=target.streetOrigin;streetStartedAge=target.streetStartedAge;
+  streetAge=streetStartedAge===null?0:Math.max(0,ruralAge-streetStartedAge);
  }
  if(headLook){yaw=bodyYaw+headLook.yaw;pitch=headLook.pitch}
- // Visual 3 is not built yet. Hold on white after the synchronized exit fade.
+ if(streetOrigin&&streetScene){
+  document.body.classList.remove('transitioning');
+  try{
+   streetScene.render({x:pos.x-streetOrigin.x,z:pos.z-streetOrigin.z+12,yaw,pitch,
+    time:streetAge,reveal:clamp01(streetAge/3.5),vr,geometry:vrGeometry(),viewer:VIEWER,calib,
+    w:canvas.width,h:canvas.height});
+   requestAnimationFrame(loop);return;
+  }catch(error){streetLoadError=error;console.error('Visual 3 render failed',error);streetScene=null;}
+ }
+ // Hold on white only while visual 3 is still preparing.
  if(ruralExitProgress>=1){
   ruralScene?.hide();document.body.classList.add('transitioning');
   gl.clearColor(1,1,1,1);gl.clear(gl.COLOR_BUFFER_BIT);
@@ -555,7 +585,7 @@ function loop(now){let dt=Math.min(.04,(now-last)/1000);last=now;
   const landscapeReveal=clamp01((ruralAge-(ruralReadyAge??0))/3.5);
   try{
    ruralScene.render({x:pos.x-ruralOrigin.x,z:pos.z-ruralOrigin.z+12,yaw,pitch,
-    time:ruralAge,reveal:landscapeReveal*(1-ruralExitProgress),vr,geometry:vrGeometry(),viewer:VIEWER,calib,
+    time:ruralAge,sceneAge:ruralAge-(ruralReadyAge??ruralAge),reveal:landscapeReveal*(1-ruralExitProgress),vr,geometry:vrGeometry(),viewer:VIEWER,calib,
     w:canvas.width,h:canvas.height});
    requestAnimationFrame(loop);return;
   }catch(error){ruralSceneFailed(error);}

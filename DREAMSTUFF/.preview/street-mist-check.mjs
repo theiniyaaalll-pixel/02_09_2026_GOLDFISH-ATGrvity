@@ -1,0 +1,4 @@
+import fs from 'node:fs';
+const helper=fs.readFileSync('.preview/street-cart-check.mjs','utf8').split("await evaluate('pos.x")[0];
+const expression=`(()=>{const before=JSON.stringify(calib),mist=streetScene.scene.getObjectByName('Street-edge dream mist');for(const yaw of [0,Math.PI/2,Math.PI,Math.PI*1.5])streetScene.render({x:0,z:12,yaw,pitch:0,time:30,reveal:1,vr:true,geometry:vrGeometry(),viewer:VIEWER,calib,w:canvas.width,h:canvas.height});return {pockets:mist.children.length,worldSpace:mist.children.every(p=>p.material.uniforms.streetTime.value===30),calibrationUnchanged:before===JSON.stringify(calib),failedPrograms:streetScene.renderer.info.programs.filter(p=>p.diagnostics?.runnable===false).length}})()`;
+await import('data:text/javascript;base64,'+Buffer.from(helper+`console.log(await evaluate(${JSON.stringify(expression)}));console.log('Render errors:',errors);await send('Browser.close');ws.close();`).toString('base64'));

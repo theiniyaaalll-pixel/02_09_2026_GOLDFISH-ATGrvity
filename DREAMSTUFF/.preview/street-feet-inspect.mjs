@@ -1,0 +1,4 @@
+import fs from 'node:fs';
+const helper=fs.readFileSync('.preview/street-cart-check.mjs','utf8').split("await evaluate('pos.x")[0];
+const expression=`streetScene.residents.slice(0,7).map(p=>{p.holder.updateMatrixWorld(true);const meshes=[];p.root.traverse(m=>{if(/shoes/.test(m.name)){m.skeleton.update();let min=Infinity,max=-Infinity;for(let i=0;i<m.geometry.attributes.position.count;i++){const v=m.getVertexPosition(i,m.position.clone()).applyMatrix4(m.matrixWorld);min=Math.min(min,v.y);max=Math.max(max,v.y)}meshes.push({name:m.name,min,max,visible:m.visible})}});return {kind:p.config.kind,x:p.holder.position.x,z:p.holder.position.z,feet:p.feet.map(f=>f.getWorldPosition(f.position.clone()).toArray()),meshes}})`;
+await import('data:text/javascript;base64,'+Buffer.from(helper+`console.log(JSON.stringify(await evaluate(${JSON.stringify(expression)}),null,2));ws.close();`).toString('base64'));

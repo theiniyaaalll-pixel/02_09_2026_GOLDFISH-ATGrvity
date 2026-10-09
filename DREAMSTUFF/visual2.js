@@ -400,6 +400,7 @@ export function createRuralScene({assets=null}={}) {
   const treeLoader=new GLTFLoader();
   const treeLoad=assets?.treeJSON?treeLoader.parseAsync(assets.treeJSON,''):treeLoader.loadAsync('./assets/rural/tree/tree-web.gltf');
   const treeReady=treeLoad.then(gltf=>{
+    scene.userData.treePrototype=gltf.scene;
     const meshes=[];gltf.scene.updateMatrixWorld(true);
     gltf.scene.traverse(object=>{if(object.isMesh)meshes.push(object);});
     const transforms=treeSpots.slice(0,12).map(([x,z,h],i)=>{
@@ -530,7 +531,13 @@ export function createRuralScene({assets=null}={}) {
   const camera=new THREE.PerspectiveCamera(90,1,.08,360);
   const target=new THREE.WebGLRenderTarget(1,1,{samples:MOBILE?0:2});
   const postScene=new THREE.Scene(),postCamera=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+  let jumpScareTexture;
+  const jumpScareReady=new Promise((resolve,reject)=>{
+    jumpScareTexture=textureLoader.load(assets.jumpScare,resolve,undefined,reject);
+    jumpScareTexture.colorSpace=THREE.SRGBColorSpace;
+  });
   const postUniforms={
+    jumpScare:{value:jumpScareTexture},scareOn:{value:0},eyeAspect:{value:1},
     image:{value:target.texture},resolution:{value:new THREE.Vector2()},imageSize:{value:new THREE.Vector2()},
     lensL:{value:new THREE.Vector2()},lensR:{value:new THREE.Vector2()},
     pxPerM:{value:1},screenLens:{value:.039},kd:{value:new THREE.Vector2()},
@@ -539,7 +546,7 @@ export function createRuralScene({assets=null}={}) {
   const postMaterial=new THREE.ShaderMaterial({
     depthTest:false,depthWrite:false,toneMapped:false,uniforms:postUniforms,
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
-    fragmentShader:`varying vec2 vUv;uniform sampler2D image;uniform vec2 resolution,imageSize,lensL,lensR,kd;
+    fragmentShader:`varying vec2 vUv;uniform sampler2D image,jumpScare;uniform float scareOn,eyeAspect;uniform vec2 resolution,imageSize,lensL,lensR,kd;
       uniform float pxPerM,screenLens,fovTan,stereo,crossOn,reveal;
       void main(){vec2 sampleUV=vUv;vec2 uv=vec2(0.);
        if(stereo>.5){
@@ -557,6 +564,15 @@ export function createRuralScene({assets=null}={}) {
        // Filmic highlight rolloff for the linear offscreen scene.
        color=max(color,vec3(0.));
        color=clamp((color*(2.51*color+.03))/(color*(2.43*color+.59)+.14),0.,1.);
+       if(scareOn>.5){
+        // Use the already calibrated eye coordinates, never a DOM overlay.
+        vec2 photoUV=sampleUV;
+        if(stereo>.5)photoUV.x=fract(photoUV.x*2.);
+        vec2 fit=vec2(max(eyeAspect/2.,1.),max(2./eyeAspect,1.));
+        photoUV=(photoUV-.5)*fit+.5;
+        color=vec3(0.);
+        if(all(greaterThanEqual(photoUV,vec2(0.)))&&all(lessThanEqual(photoUV,vec2(1.))))color=texture2D(jumpScare,photoUV).rgb;
+       }
        if(stereo>.5&&crossOn>.5){vec2 gd=abs(fract(uv*4.+.5)-.5)/4.;
         float a=step(min(gd.x,gd.y),.0035)+step(min(abs(uv.x),abs(uv.y)),.008);
         color=mix(color,vec3(0.,1.,.6),clamp(a,0.,1.));}
@@ -573,7 +589,7 @@ export function createRuralScene({assets=null}={}) {
   let width=0,height=0,sceneWidth=0,sceneHeight=0,lastReflection=-1;
   let lastReflectionYaw=Infinity,lastReflectionPitch=Infinity;
   let active=false;
-  function render({x,z,yaw,pitch,time,reveal,vr,geometry,viewer,calib,w,h}) {
+  function render({x,z,yaw,pitch,time,sceneAge=0,reveal,vr,geometry,viewer,calib,w,h}) {
     if(!active){canvas.style.display='block';active=true;}
     if(w!==width||h!==height){
       width=w;height=h;
@@ -585,6 +601,8 @@ export function createRuralScene({assets=null}={}) {
       postUniforms.resolution.value.set(w,h);postUniforms.imageSize.value.set(sceneWidth,sceneHeight);
     }
     clock.value=time;
+    postUniforms.scareOn.value=sceneAge>=10&&sceneAge<13?1:0;
+    postUniforms.eyeAspect.value=vr?1:w/h;
     dog.update(time);
     const glowPulse=1+.055*Math.sin(time*1.8);
     glowHalo.scale.set(16*glowPulse,16*glowPulse,1);
@@ -630,7 +648,7 @@ export function createRuralScene({assets=null}={}) {
   }
   function hide(){canvas.style.display='none';active=false;}
   async function prepare(view){
-    await treeReady;
+    await Promise.all([treeReady,jumpScareReady]);
     // Compile and upload before the transition so the first landscape frame
     // does not incur shader compilation or texture upload in the white fade.
     if(renderer.compileAsync)await renderer.compileAsync(scene,camera);
