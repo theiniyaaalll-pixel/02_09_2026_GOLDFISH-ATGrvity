@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+const tabs=await(await fetch('http://127.0.0.1:9335/json')).json(),ws=new WebSocket(tabs.find(t=>t.type==='page').webSocketDebuggerUrl);
+await new Promise(r=>ws.addEventListener('open',r,{once:true}));
+const encoded=fs.readFileSync('assets/audio/jump-scream.mp3').toString('base64');
+const expression=`(async()=>{const bytes=Uint8Array.from(atob(${JSON.stringify(encoded)}),c=>c.charCodeAt(0)),ctx=new OfflineAudioContext(2,1,44100),audio=await ctx.decodeAudioData(bytes.buffer),data=audio.getChannelData(0),bins=[],step=Math.floor(audio.sampleRate*.025);for(let i=0;i<data.length;i+=step){let energy=0;for(let j=i;j<Math.min(i+step,data.length);j++)energy+=data[j]*data[j];bins.push(Math.sqrt(energy/step));}const peak=Math.max(...bins),onset=Math.max(0,bins.findIndex(v=>v>peak*.22)*.025-.075),start=Math.floor(onset*audio.sampleRate),end=Math.min(audio.length,start+3*audio.sampleRate);return {rate:audio.sampleRate,channels:Array.from({length:audio.numberOfChannels},(_,i)=>Array.from(audio.getChannelData(i).slice(start,end))),duration:audio.duration,onset,peak};})()`;
+ws.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression,awaitPromise:true,returnByValue:true}}));
+const result=await new Promise(r=>ws.addEventListener('message',e=>r(JSON.parse(e.data)),{once:true}));if(result.result.exceptionDetails)throw Error(JSON.stringify(result.result.exceptionDetails));
+const {rate,channels,duration,onset,peak}=result.result.result.value,n=channels[0].length,count=channels.length;
+const wav=Buffer.alloc(44+n*count*2);wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(count,22);wav.writeUInt32LE(rate,24);wav.writeUInt32LE(rate*count*2,28);wav.writeUInt16LE(count*2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(n*count*2,40);
+for(let i=0;i<n;i++)for(let c=0;c<count;c++){const fade=Math.min(1,i/(rate*.005),(n-i)/(rate*.04)),sample=Math.max(-1,Math.min(1,channels[c][i]*fade));wav.writeInt16LE(Math.round(sample*32767),44+(i*count+c)*2);}
+fs.writeFileSync('assets/audio/jump-scream.wav',wav);console.log({originalDuration:duration,removedLeadingSilence:onset,preparedDuration:n/rate,peakRms:peak});ws.close();

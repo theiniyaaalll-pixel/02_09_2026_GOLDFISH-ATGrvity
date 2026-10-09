@@ -1,1 +1,1 @@
-{"name":"liminal-vr-cardboard-controller","private":true,"type":"module","scripts":{"build":"node build-visual2.mjs && node build-welcome-visual.mjs","prestart":"npm run build","start":"node server.mjs"}}
+{"name":"liminal-vr-cardboard-controller","private":true,"type":"module","scripts":{"build":"node build-visual2.mjs && node build-welcome-visual.mjs && node build-audio.mjs","prestart":"npm run build","start":"node server.mjs"}}
